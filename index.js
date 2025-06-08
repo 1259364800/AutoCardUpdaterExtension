@@ -4,112 +4,124 @@
 (function () {
   'use strict';
 
-  const extensionName_ACU = "AutoCardUpdaterExtension";
+  const extensionName_ACU = 'AutoCardUpdaterExtension';
   const extensionFolderPath_ACU = `scripts/extensions/third-party/${extensionName_ACU}`;
 
   // --- Updater Module ---
   const Updater_ACU = {
-      gitRepoOwner: "1830488003", // <-- 在这里填写您的 GitHub 用户名
-      gitRepoName: "AutoCardUpdaterExtension", // <-- 在这里填写您的 GitHub 仓库名
-      currentVersion: "0.0.0",
-      latestVersion: "0.0.0",
-      changelogContent: "",
+    gitRepoOwner: '1830488003', // <-- 在这里填写您的 GitHub 用户名
+    gitRepoName: 'AutoCardUpdaterExtension', // <-- 在这里填写您的 GitHub 仓库名
+    currentVersion: '0.0.0',
+    latestVersion: '0.0.0',
+    changelogContent: '',
 
-      async fetchRawFileFromGitHub(filePath) {
-          const url = `https://raw.githubusercontent.com/${this.gitRepoOwner}/${this.gitRepoName}/main/${filePath}`;
-          const response = await fetch(url, { cache: 'no-cache' });
-          if (!response.ok) {
-              throw new Error(`Failed to fetch ${filePath} from GitHub: ${response.statusText}`);
-          }
-          return response.text();
-      },
-
-      parseVersion(content) {
-          try {
-              return JSON.parse(content).version || "0.0.0";
-          } catch (error) {
-              console.error(`[${SCRIPT_ID_PREFIX_ACU}] Failed to parse version:`, error);
-              return "0.0.0";
-          }
-      },
-
-      compareVersions(v1, v2) {
-          const parts1 = v1.split('.').map(Number);
-          const parts2 = v2.split('.').map(Number);
-          for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-              const p1 = parts1[i] || 0;
-              const p2 = parts2[i] || 0;
-              if (p1 > p2) return 1;
-              if (p1 < p2) return -1;
-          }
-          return 0;
-      },
-
-      async performUpdate() {
-          const { getRequestHeaders } = SillyTavern_API_ACU.getContext().common;
-          const { extension_types } = SillyTavern_API_ACU.getContext().extensions;
-          showToastr_ACU('info', "正在开始更新...");
-          try {
-              const response = await fetch('/api/extensions/update', {
-                  method: 'POST',
-                  headers: getRequestHeaders(),
-                  body: JSON.stringify({
-                      extensionName: extensionName_ACU,
-                      global: extension_types[extensionName_ACU] === 'global',
-                  }),
-              });
-              if (!response.ok) throw new Error(await response.text());
-
-              showToastr_ACU('success', "更新成功！将在3秒后刷新页面应用更改。");
-              setTimeout(() => location.reload(), 3000);
-          } catch (error) {
-              showToastr_ACU('error', `更新失败: ${error.message}`);
-          }
-      },
-
-      async showUpdateConfirmDialog() {
-          const { POPUP_TYPE, callGenericPopup } = SillyTavern_API_ACU.getContext().popup;
-          try {
-              this.changelogContent = await this.fetchRawFileFromGitHub('CHANGELOG.md');
-          } catch (error) {
-              this.changelogContent = `发现新版本 ${this.latestVersion}！您想现在更新吗？`;
-          }
-          if (await callGenericPopup(this.changelogContent, POPUP_TYPE.CONFIRM, { okButton: "立即更新", cancelButton: "稍后", wide: true, large: true })) {
-              await this.performUpdate();
-          }
-      },
-
-      async checkForUpdates(isManual = false) {
-          const updateButton = $extensionSettingsPanel.find('#auto-card-updater-check-for-updates');
-          const updateIndicator = $extensionSettingsPanel.find('.update-indicator');
-          
-          if (isManual) {
-              updateButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 检查中...');
-          }
-          try {
-              const localManifestText = await (await fetch(`/${extensionFolderPath_ACU}/manifest.json?t=${Date.now()}`)).text();
-              this.currentVersion = this.parseVersion(localManifestText);
-              $extensionSettingsPanel.find('#auto-card-updater-current-version').text(this.currentVersion);
-
-              const remoteManifestText = await this.fetchRawFileFromGitHub('manifest.json');
-              this.latestVersion = this.parseVersion(remoteManifestText);
-
-              if (this.compareVersions(this.latestVersion, this.currentVersion) > 0) {
-                  updateIndicator.show();
-                  updateButton.html(`<i class="fa-solid fa-gift"></i> 发现新版 ${this.latestVersion}!`).off('click').on('click', () => this.showUpdateConfirmDialog());
-                  if (isManual) showToastr_ACU('success', `发现新版本 ${this.latestVersion}！点击按钮进行更新。`);
-              } else {
-                  updateIndicator.hide();
-                  if (isManual) showToastr_ACU('info', '您当前已是最新版本。');
-              }
-          } catch (error) {
-              if (isManual) showToastr_ACU('error', `检查更新失败: ${error.message}`);
-          } finally {
-              if (isManual && this.compareVersions(this.latestVersion, this.currentVersion) <= 0) {
-                  updateButton.prop('disabled', false).html('<i class="fa-solid fa-cloud-arrow-down"></i> 检查更新');
-              }
-          }
+    async fetchRawFileFromGitHub(filePath) {
+      const url = `https://raw.githubusercontent.com/${this.gitRepoOwner}/${this.gitRepoName}/main/${filePath}`;
+      const response = await fetch(url, { cache: 'no-cache' });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${filePath} from GitHub: ${response.statusText}`);
       }
+      return response.text();
+    },
+
+    parseVersion(content) {
+      try {
+        return JSON.parse(content).version || '0.0.0';
+      } catch (error) {
+        console.error(`[${SCRIPT_ID_PREFIX_ACU}] Failed to parse version:`, error);
+        return '0.0.0';
+      }
+    },
+
+    compareVersions(v1, v2) {
+      const parts1 = v1.split('.').map(Number);
+      const parts2 = v2.split('.').map(Number);
+      for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const p1 = parts1[i] || 0;
+        const p2 = parts2[i] || 0;
+        if (p1 > p2) return 1;
+        if (p1 < p2) return -1;
+      }
+      return 0;
+    },
+
+    async performUpdate() {
+      const { getRequestHeaders } = SillyTavern_API_ACU.getContext().common;
+      const { extension_types } = SillyTavern_API_ACU.getContext().extensions;
+      showToastr_ACU('info', '正在开始更新...');
+      try {
+        const response = await fetch('/api/extensions/update', {
+          method: 'POST',
+          headers: getRequestHeaders(),
+          body: JSON.stringify({
+            extensionName: extensionName_ACU,
+            global: extension_types[extensionName_ACU] === 'global',
+          }),
+        });
+        if (!response.ok) throw new Error(await response.text());
+
+        showToastr_ACU('success', '更新成功！将在3秒后刷新页面应用更改。');
+        setTimeout(() => location.reload(), 3000);
+      } catch (error) {
+        showToastr_ACU('error', `更新失败: ${error.message}`);
+      }
+    },
+
+    async showUpdateConfirmDialog() {
+      const { POPUP_TYPE, callGenericPopup } = SillyTavern_API_ACU.getContext().popup;
+      try {
+        this.changelogContent = await this.fetchRawFileFromGitHub('CHANGELOG.md');
+      } catch (error) {
+        this.changelogContent = `发现新版本 ${this.latestVersion}！您想现在更新吗？`;
+      }
+      if (
+        await callGenericPopup(this.changelogContent, POPUP_TYPE.CONFIRM, {
+          okButton: '立即更新',
+          cancelButton: '稍后',
+          wide: true,
+          large: true,
+        })
+      ) {
+        await this.performUpdate();
+      }
+    },
+
+    async checkForUpdates(isManual = false) {
+      const updateButton = $extensionSettingsPanel.find('#auto-card-updater-check-for-updates');
+      const updateIndicator = $extensionSettingsPanel.find('.update-indicator');
+
+      if (isManual) {
+        updateButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 检查中...');
+      }
+      try {
+        const localManifestText = await (
+          await fetch(`/${extensionFolderPath_ACU}/manifest.json?t=${Date.now()}`)
+        ).text();
+        this.currentVersion = this.parseVersion(localManifestText);
+        $extensionSettingsPanel.find('#auto-card-updater-current-version').text(this.currentVersion);
+
+        const remoteManifestText = await this.fetchRawFileFromGitHub('manifest.json');
+        this.latestVersion = this.parseVersion(remoteManifestText);
+
+        if (this.compareVersions(this.latestVersion, this.currentVersion) > 0) {
+          updateIndicator.show();
+          updateButton
+            .html(`<i class="fa-solid fa-gift"></i> 发现新版 ${this.latestVersion}!`)
+            .off('click')
+            .on('click', () => this.showUpdateConfirmDialog());
+          if (isManual) showToastr_ACU('success', `发现新版本 ${this.latestVersion}！点击按钮进行更新。`);
+        } else {
+          updateIndicator.hide();
+          if (isManual) showToastr_ACU('info', '您当前已是最新版本。');
+        }
+      } catch (error) {
+        if (isManual) showToastr_ACU('error', `检查更新失败: ${error.message}`);
+      } finally {
+        if (isManual && this.compareVersions(this.latestVersion, this.currentVersion) <= 0) {
+          updateButton.prop('disabled', false).html('<i class="fa-solid fa-cloud-arrow-down"></i> 检查更新');
+        }
+      }
+    },
   };
 
   // --- 脚本配置常量 ---
@@ -156,8 +168,109 @@
 """
 用中文回复用户
 </最高命令>`;
-  const DEFAULT_CHAR_CARD_PROMPT_ACU =
-    '您是一个角色信息提取和格式化AI。您的任务是仔细阅读用户提供的**聊天记录**，并根据**对话内容**，为聊天记录中出现的**所有非用户角色**分别生成一份详细的角色卡，重点关注每个角色的**当前状态**。\n\n输出要求：\nconst yamlStructureInstruction = "严格按照下面提供的YAML结构，为聊天记录中识别出的每一个非用户角色生成对应的\\`<char_XXXXXX>\\`代码块。";\nXXXXXX应为六位随机编码，同一角色的所有模块应使用相同的编码。\n您的输出必须且仅包含这些YAML格式的角色卡代码块。**为每个识别出的非用户角色生成一个独立的YAML块**。不要包含任何剧情原文、解释、说明、标题、引言、总结或任何非YAML格式的文本。\n所有YAML内容均使用中文。\n从聊天记录中提取信息填充角色卡的各个字段。如果对话中未明确提供某些字段的信息，则将该字段留空（以保持结构完整性）。对于完全没有信息可填的可选字段或列表，可以省略该字段或列表项。\n对于如“核心性格标签”或“核心特质”等列表项，根据对话提炼3-5个最相关的条目。\n对于“语言样本 (Corpus)”模块，直接从聊天记录中提取角色的对话或内心独白作为示例。遵循“禁止生成任何非人物语言与内心独白的内容”的原则。\n对于“核心特质 (Traits)”模块，根据角色在对话中的行为、思想和言语，提炼3-5个核心特质，并提供对话中的具体行为或言语作为示例。\n角色卡的“姓名”字段必须准确填写聊天记录中该角色的名字。请确保为聊天记录中所有参与对话的非用户角色都生成角色卡。\n\n角色卡结构定义：\n(模块一：角色外显 - Exophenotype)\n# <char_XXXXXX> # XXXXXX为六位随机编码\n# 模块一：角色外显 (Exophenotype)\n外显资料:\n  基本信息:\n    姓名: "[从聊天记录中提取角色姓名]"\n    性别: "[从聊天记录中提取或推断]"\n    种族_民族: "[从聊天记录中提取，若提及]"\n    年龄: "[从聊天记录中提取或推断]"\n    背景_身份: "[从聊天记录中提取或推断角色的职业、社会角色或背景]"\n    当前状态概述: "[根据对话内容，总结角色在聊天记录时间点的主要状态、情绪或处境]"\n  外貌与举止:\n    整体印象: "[根据对话内容综合描述角色给人的外在感觉和气质]"\n    关键外貌特征: "[提取对话中提及的最显著的外貌细节，如发色、眼神、伤疤等]"\n    衣着风格: "[提取对话中提及的服装特点或风格]"\n    习惯性动作或姿态: "[提取对话中提及的标志性小动作、姿态或语气词]"\n    声音特点: "[根据对话推断音色、语速、语气等，如：低沉、急促、温柔]"\n\n(模块二：角色内质 - Endophenotype)\n# 模块二：角色内质 (Endophenotype)\n内质资料:\n  性格与内在:\n    核心性格标签: # (列表，根据对话提炼3-5个最相关的标签)\n      - "[标签1]"\n      - "[标签2]"\n      - "[标签3]"\n    主要性格特点描述: "[根据对话内容详细描述角色主要性格特征及其表现]"\n    核心动机或目标: "[根据对话内容提炼角色当前最关心的事或追求的目标]"\n    价值观或原则: "[根据对话内容提炼角色行为背后体现的价值观或处事原则]"\n    # 内心挣扎或弱点: "[根据对话内容描述角色可能存在的内在矛盾、恐惧或弱点，若明确提及]" # 可选字段\n\n(模块三：角色外延 - Social Ectophenotype)\n# 模块三：角色外延 (Social Ectophenotype)\n外延资料:\n  社交与能力:\n    社交风格: "[描述角色与人交往的方式，如：主动、被动、圆滑、直接等]"\n    核心能力或特长: "[根据对话内容提炼角色展现出的关键技能或能力]"\n    # 在他人眼中的印象: "[根据对话归纳其他人对该角色的看法，若提及]" # 可选字段\n\n(模块四：角色特质 - Traits)\n# 模块四：角色特质 (Traits)\n核心特质: # (提炼3-5个核心特质，附带对话依据)\n  - 特质名称: "[根据对话内容提炼特质1的名称]"\n    核心定义: "[简述该特质的核心表现]"\n    行为/言语实例: # (从聊天记录中提取1-2个具体例子)\n      - "[聊天记录中的行为或言语实例1]"\n  - 特质名称: "[根据对话内容提炼特质2的名称]"\n    核心定义: "[简述该特质的核心表现]"\n    行为/言语实例:\n      - "[聊天记录中的行为或言语实例1]"\n  # (根据需要添加更多特质，总计3-5个)\n\n(模块五：角色语料 - Corpus)\n# 模块五：角色语料 (Corpus)\n# 核心原则是高度还原人物本身的性格，禁止生成任何非人物语言与内心独白的内容。\n语言样本: # (从聊天记录中提取能代表角色语言风格的直接引语)\n  语言风格简述: "[概括角色的说话节奏、常用词、语气等特点]"\n  典型引语: # (提取2-4段代表性引语)\n    - "[直接引用聊天记录中的对话或内心独白原文1]"\n    - "[直接引用聊天记录中的对话或内心独白原文2]"\n    - "[直接引用聊天记录中的对话或内心独白原文3]"\n\n(模块六：角色关系 - Relationships)\n# 模块六：角色关系 (Relationships)\n关键关系: # (分析1-3个最重要的关系)\n  - 关系对象姓名: "[关系对象1姓名]"\n    关系概述: "[描述关系性质、重要性及互动模式]"\n    # 对主角的影响: "[分析这段关系对主角产生的影响]" # 可选字段\n  # (根据需要添加更多关系)\n\n请开始生成角色描述：';
+  const DEFAULT_CHAR_CARD_PROMPT_ACU = [
+    '您是一个角色信息提取和格式化AI。您的任务是仔细阅读用户提供的**聊天记录**，并根据**对话内容**，为聊天记录中出现的**所有非用户角色**分别生成一份详细的角色卡，重点关注每个角色的**当前状态**。',
+    '',
+    '**输出格式要求 (极为重要):**',
+    '1.  **绝对禁止使用YAML。** 您的输出必须遵循一种非常简单的、基于**特殊标记**的键值对格式。',
+    '2.  每个角色卡必须以 `[START_CHAR_CARD]` 开始，并以 `[END_CHAR_CARD]` 结束。',
+    '3.  在角色卡内部，每一条信息都必须是 `[数据路径]:[数据值]` 的形式，每条占一行。',
+    '4.  **数据路径** 严格遵循以下定义的路径，用于表示数据的层级结构和内容。',
+    '5.  **列表项** 通过在路径末尾添加从0开始的数字索引来表示，例如 `[endophenotype.personality.tags.0]`。',
+    '6.  如果某个字段没有信息，则输出 `[数据路径]:` 即可，值留空。',
+    '7.  **绝对不要**包含任何解释、说明、标题、引言、总结或任何不符合 `[key]:value` 格式的文本。',
+    '',
+    '---',
+    '**数据路径定义与内容要求:**',
+    '',
+    '**模块一：角色外显 (Exophenotype)**',
+    '*   `name`: [从聊天记录中提取角色姓名]',
+    '*   `exophenotype.basic_info.gender`: [从聊天记录中提取或推断性别]',
+    '*   `exophenotype.basic_info.race`: [从聊天记录中提取种族或民族，若提及]',
+    '*   `exophenotype.basic_info.age`: [从聊天记录中提取或推断年龄]',
+    '*   `exophenotype.basic_info.identity`: [从聊天记录中提取或推断角色的职业、社会角色或背景]',
+    '*   `exophenotype.basic_info.status_summary`: [根据对话内容，总结角色在聊天记录时间点的主要状态、情绪或处境]',
+    '*   `exophenotype.appearance.overall_impression`: [根据对话内容综合描述角色给人的外在感觉和气质]',
+    '*   `exophenotype.appearance.key_features`: [提取对话中提及的最显著的外貌细节，如发色、眼神、伤疤等]',
+    '*   `exophenotype.appearance.clothing_style`: [提取对话中提及的服装特点或风格]',
+    '*   `exophenotype.appearance.habitual_actions`: [提取对话中提及的标志性小动作、姿态或语气词]',
+    '*   `exophenotype.appearance.voice_characteristics`: [根据对话推断音色、语速、语气等，如：低沉、急促、温柔]',
+    '',
+    '**模块二：角色内质 (Endophenotype)**',
+    '*   `endophenotype.personality.tags.0`: [根据对话提炼的核心性格标签1]',
+    '*   `endophenotype.personality.tags.1`: [标签2]',
+    '*   `endophenotype.personality.tags.2`: [标签3] (根据对话内容提炼3-5个)',
+    '*   `endophenotype.personality.description`: [根据对话内容详细描述角色主要性格特征及其表现]',
+    '*   `endophenotype.personality.motivation`: [根据对话内容提炼角色当前最关心的事或追求的目标]',
+    '*   `endophenotype.personality.values`: [根据对话内容提炼角色行为背后体现的价值观或处事原则]',
+    '*   `endophenotype.personality.struggle`: [根据对话内容描述角色可能存在的内在矛盾、恐惧或弱点，若明确提及]',
+    '',
+    '**模块三：角色外延 (Social Ectophenotype)**',
+    '*   `social_ectophenotype.social.style`: [描述角色与人交往的方式，如：主动、被动、圆滑、直接等]',
+    '*   `social_ectophenotype.social.abilities`: [根据对话内容提炼角色展现出的关键技能或能力]',
+    '*   `social_ectophenotype.social.impression_on_others`: [根据对话归纳其他人对该角色的看法，若提及]',
+    '',
+    '**模块四：角色特质 (Traits)** (提炼3-5个核心特质，附带对话依据)',
+    '*   `traits.0.name`: [特质1的名称]',
+    '*   `traits.0.definition`: [简述该特质的核心表现]',
+    '*   `traits.0.examples.0`: [从聊天记录中提取的具体行为或言语实例1]',
+    '*   `traits.0.examples.1`: [实例2]',
+    '*   `traits.1.name`: [特质2的名称]',
+    '*   `traits.1.definition`: [特质2的核心定义]',
+    '*   `traits.1.examples.0`: [特质2的实例1]',
+    '',
+    '**模块五：角色语料 (Corpus)** (核心原则是高度还原人物本身的性格，禁止生成任何非人物语言与内心独白的内容)',
+    '*   `corpus.style_summary`: [概括角色的说话节奏、常用词、语气等特点]',
+    '*   `corpus.quotes.0`: [直接引用聊天记录中的对话或内心独白原文1]',
+    '*   `corpus.quotes.1`: [引文2]',
+    '*   `corpus.quotes.2`: [引文3] (提取2-4段代表性引语)',
+    '',
+    '**模块六：角色关系 (Relationships)** (分析1-3个最重要的关系)',
+    '*   `relationships.0.name`: [关系对象1姓名]',
+    '*   `relationships.0.summary`: [描述关系性质、重要性及互动模式]',
+    '*   `relationships.0.impact_on_protagonist`: [分析这段关系对主角产生的影响，若提及]',
+    '',
+    '---',
+    '**详尽示例输出 (必须严格模仿此结构和完整性):**',
+    '[START_CHAR_CARD]',
+    '[name]:伊芙琳',
+    '[exophenotype.basic_info.gender]:女性',
+    '[exophenotype.basic_info.race]:精灵',
+    '[exophenotype.basic_info.age]:152',
+    '[exophenotype.basic_info.identity]:月光森林的守护者，古老议会的成员',
+    '[exophenotype.basic_info.status_summary]:因森林之心被污染而感到忧虑，同时对玩家的到来抱有谨慎的希望，身体因长时间维持结界而略显疲惫。',
+    '[exophenotype.appearance.overall_impression]:优雅而威严，气质中带有森林般的沉静与一丝不易察觉的忧伤。',
+    '[exophenotype.appearance.key_features]:银色长发，眼瞳是深邃的翡翠绿，左耳佩戴着一枚新月形耳坠。',
+    '[exophenotype.appearance.clothing_style]:身着由月光丝线和林地树叶编织而成的深绿色长袍，袖口绣有银色的古老符文。',
+    '[exophenotype.appearance.habitual_actions]:说话时会不自觉地轻抚胸前的守护者徽记，思考时习惯性地望向森林深处。',
+    '[exophenotype.appearance.voice_characteristics]:声音柔和但充满力量，语速平缓，如同林间清风。',
+    '[endophenotype.personality.tags.0]:智慧',
+    '[endophenotype.personality.tags.1]:责任心强',
+    '[endophenotype.personality.tags.2]:谨慎',
+    '[endophenotype.personality.tags.3]:外冷内热',
+    '[endophenotype.personality.description]:伊芙琳是一位充满智慧、富有责任感的守护者。她将保卫家园视为最高使命，因此在面对陌生人时表现得非常谨慎。然而，在她冷峻的外表下，隐藏着对所有生命的深切关怀。',
+    '[endophenotype.personality.motivation]:净化被污染的森林之心，恢复月光森林的平衡与安宁。',
+    '[endophenotype.personality.values]:坚守传统，尊重自然，认为平衡与和谐是世间万物的最高法则。',
+    '[endophenotype.personality.struggle]:在坚守古老传统与是否应接受外部援助（例如玩家）之间感到矛盾。',
+    '[social_ectophenotype.social.style]:官方且带有距离感，但在确认对方无害后会变得更加开放和真诚。',
+    '[social_ectophenotype.social.abilities]:精通古老的森林魔法，擅长植物沟通和自然结界术。',
+    '[social_ectophenotype.social.impression_on_others]:初见时可能被认为是冷漠和难以接近的，但深入了解后会发现她的可靠与温情。',
+    '[traits.0.name]:守护者的责任',
+    '[traits.0.definition]:将保护家园和族人视为不可推卸的责任，并愿意为此付出一切。',
+    '[traits.0.examples.0]:“我不能离开，森林之心需要我的力量来抑制腐化的蔓延。”',
+    '[traits.1.name]:对自然的共情',
+    '[traits.1.definition]:能够深刻地感受并理解自然界的生命，并与之建立情感联系。',
+    '[traits.1.examples.0]:“当她触摸那棵枯萎的古树时，我看到她眼中闪过一丝真正的痛苦。”',
+    '[corpus.style_summary]:语言正式、典雅，多使用比喻和充满哲理的句子。',
+    '[corpus.quotes.0]:“每一片树叶的凋零，都像是我们历史书页的燃烧。”',
+    '[corpus.quotes.1]:“信任不是轻易给予的赠礼，而是需要用行动去赢得的珍宝。”',
+    '[relationships.0.name]:玩家',
+    '[relationships.0.summary]:一个充满变数的闯入者。伊芙琳对他既抱有希望，也心存疑虑，关系正在从“外来者”向“潜在的盟友”转变。',
+    '[relationships.0.impact_on_protagonist]:伊芙琳是主角深入了解这个世界和核心任务的关键人物，她的信任是推动剧情发展的必要条件。',
+    '[END_CHAR_CARD]',
+    '',
+    '请开始严格按照以上新格式和内容要求生成角色卡：',
+  ].join('\n');
 
   const DEFAULT_AUTO_UPDATE_THRESHOLD_ACU = 20;
 
@@ -220,541 +333,544 @@
 
   // --- Char Card Viewer UI Functions (v0.2.0 - Multi-character Editor) ---
 
-  // A more robust, custom YAML parser for the specific format.
-  function customYamlParser_ACU(yamlText) {
-    const lines = yamlText.split('\n');
-    const result = {};
-    const stack = [{ obj: result, indent: -1 }];
+        /**
+         * @summary 解析自定义的 [key]:value 格式文本为嵌套JS对象。
+         * @description 此函数将接收专门格式化的纯文本，并将其转换为一个结构化的JavaScript对象。
+         * 它通过点记法路径（如 'appearance.hair_color'）来构建嵌套结构，包括对象和数组。
+         * @param {string} text - 使用 [key]:value 格式的输入文本。
+         * @returns {object} - 解析后生成的嵌套JavaScript对象。
+         */
+        function parseCustomFormat_ACU(text) {
+            const data = {};
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.trim() === '' || line.trim().startsWith('#')) continue;
+            // 辅助函数：根据点记法路径在对象中设置值
+            const setNestedValue = (obj, path, value) => {
+                const keys = path.split('.');
+                let current = obj;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    const key = keys[i];
+                    const nextKey = keys[i + 1];
 
-        const indent = line.search(/\S/);
-        const trimmedLine = line.trim();
+                    // 检查下一个键是否是数字，以确定是创建对象还是数组
+                    const isNextKeyNumeric = /^\d+$/.test(nextKey);
 
-        while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
-            stack.pop();
-        }
-        const parent = stack[stack.length - 1];
-
-        // Handle list items
-        if (trimmedLine.startsWith('- ')) {
-            if (!Array.isArray(parent.obj)) {
-                // This shouldn't happen if the parent key was properly identified as a list
-                continue;
-            }
-
-            const itemContent = trimmedLine.substring(2).trim();
-            // Check if this list item is the start of an object
-            if (itemContent.includes(':')) {
-                const newObj = {};
-                parent.obj.push(newObj);
-                stack.push({ obj: newObj, indent: indent });
-                // Re-process the current line as a key-value pair for the new object
-                i--; 
-            } else {
-                 parent.obj.push(itemContent.replace(/^["']|["']$/g, ''));
-            }
-            continue;
-        }
-
-        // Handle key-value pairs
-        const separatorIndex = trimmedLine.indexOf(':');
-        if (separatorIndex === -1) continue;
-
-        const key = trimmedLine.substring(0, separatorIndex).trim();
-        let value = trimmedLine.substring(separatorIndex + 1).trim();
-        
-        // Handle multiline strings (simplified: starts with |)
-        if (value === '|') {
-            let multilineContent = [];
-            let nextLineIndex = i + 1;
-            while (nextLineIndex < lines.length && (lines[nextLineIndex].search(/\S/) > indent || lines[nextLineIndex].trim() === '')) {
-                multilineContent.push(lines[nextLineIndex].substring(indent + 2));
-                nextLineIndex++;
-            }
-            value = multilineContent.join('\n');
-            i = nextLineIndex - 1; // Move parser to the end of multiline block
-        } else {
-            value = value.replace(/^["']|["']$/g, ''); // Strip quotes
-        }
-        
-        // Look ahead to see if the next line is a list, making this key a list container
-        const nextLine = (i + 1 < lines.length) ? lines[i + 1].trim() : null;
-        if (value === '' && nextLine && nextLine.startsWith('-')) {
-            const newList = [];
-            parent.obj[key] = newList;
-            stack.push({ obj: newList, indent: indent + 2 }); // Assume standard 2-space list indent
-        } 
-        // If value is empty, it's a new nested object
-        else if (value === '') {
-            const newObj = {};
-            parent.obj[key] = newObj;
-            stack.push({ obj: newObj, indent: indent });
-        }
-        // It's a simple key-value pair
-        else {
-            parent.obj[key] = value;
-        }
-    }
-    return result;
-  }
-
-  // Wrapper function to use the new custom parser, with improved data mapping
-  function parseCharCardYaml_ACU(rawContent) {
-    try {
-        let cleanedString = rawContent
-            .replace('注意：以下是该角色当前最新的角色卡信息。在后续的剧情生成中，请严格依据此角色卡中描述的最新人物状态进行创作。', '')
-            .replace(/^```yaml\s*/, '')
-            .replace(/```$/, '')
-            .trim();
-
-        const data = customYamlParser_ACU(cleanedString);
-
-        const card = {};
-        const get = (path, source = data) => path.split('.').reduce((o, k) => (o || {})[k], source);
-        
-        card.basicInfo = get('外显资料.基本信息');
-        card.appearance = get('外显资料.外貌与举止');
-        card.personality = get('内质资料.性格与内在');
-        card.social = get('外延资料.社交与能力');
-        card.traits = get('核心特质');
-        card.corpus = get('语言样本');
-        card.relationships = get('关键关系');
-
-        // Post-processing to ensure arrays are arrays
-        if(card.personality && card.personality.核心性格标签 && typeof card.personality.核心性格标签 === 'string'){
-            card.personality.核心性格标签 = [card.personality.核心性格标签];
-        }
-        if(card.corpus && card.corpus.典型引语 && typeof card.corpus.典型引语 === 'string'){
-            card.corpus.典型引语 = [card.corpus.典型引语];
-        }
-        if(card.traits && card.traits.length > 0) {
-            card.traits.forEach(trait => {
-                if (trait['行为/言语实例'] && typeof trait['行为/言语实例'] === 'string') {
-                    trait['行为/言语实例'] = [trait['行为/言语实例']];
+                    if (!current[key]) {
+                        current[key] = isNextKeyNumeric ? [] : {};
+                    }
+                    current = current[key];
                 }
-            });
+
+                const finalKey = keys[keys.length - 1];
+                // 如果路径的最后一部分是数字，则将其存入数组
+                if (/^\d+$/.test(finalKey) && Array.isArray(current)) {
+                    current[parseInt(finalKey, 10)] = value;
+                } else {
+                    current[finalKey] = value;
+                }
+            };
+
+            // 过滤空行并逐行解析
+            if (typeof text === 'string') {
+                const lines = text.split('\n').filter(line => line.trim() !== '');
+                lines.forEach(line => {
+                    const match = line.match(/^\[(.*?)]:([\s\S]*)$/);
+                    if (match) {
+                        const path = match[1];
+                        // 保留原始值的格式，包括换行符，仅去除首尾可能存在的空格
+                        const value = match[2].trim(); 
+                        setNestedValue(data, path, value);
+                    }
+                });
+            }
+
+            return data;
         }
+
+        function createCharCardViewerPopupHtml_ACU(characters) {
+            const keyToLabelMap_ACU = {
+                // 顶层
+                'name': '姓名',
+                'traits': '核心特质',
+                'relationships': '关键关系',
+
+                // Exophenotype - Basic Info
+                'basic_info': '基本信息',
+                'gender': '性别',
+                'race': '种族',
+                'age': '年龄',
+                'identity': '身份',
+                'status_summary': '状态概述',
+
+                // Exophenotype - Appearance
+                'appearance': '外貌与举止',
+                'overall_impression': '总体印象',
+                'key_features': '关键特征',
+                'clothing_style': '衣着风格',
+                'habitual_actions': '习惯性动作',
+                'voice_characteristics': '声音特点',
+
+                // Endophenotype - Personality
+                'personality': '性格与内在',
+                'tags': '性格标签',
+                'description': '性格详述',
+                'motivation': '动机',
+                'values': '价值观',
+                'struggle': '内在挣扎',
+
+                // Social Ectophenotype
+                'social': '社交与能力',
+                'style': '社交风格',
+                'abilities': '能力',
+                'impression_on_others': '他人印象',
+                
+                // Corpus
+                'corpus': '语言样本',
+                'style_summary': '说话风格总结',
+                'quotes': '代表性引言',
+                
+                // Trait/Relationship items
+                'definition': '定义',
+                'examples': '示例',
+                'summary': '关系概述',
+                'impact_on_protagonist': '对主角的影响'
+            };
+            
+            const getLabel = (key) => keyToLabelMap_ACU[key] || key.replace(/_/g, ' ');
+
+            /**
+             * @summary 渲染一个UI模块/卡片。
+             * @description 根据提供的数据和路径前缀，递归地生成表单字段。
+             * @param {string} title - 卡片标题。
+             * @param {object} data - 要渲染的数据对象。
+             * @param {string} pathPrefix - 用于data-path属性的路径前缀。
+             * @returns {string} - 生成的HTML字符串。
+             */
+            const renderCard = (title, data, pathPrefix) => {
+                if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return '';
         
-        if (!card.basicInfo || !card.basicInfo.姓名) {
-            logError_ACU("Parsed YAML, but could not find a character name.", data);
-            return null;
-        }
-
-        return card;
-    } catch (e) {
-        logError_ACU("Failed to parse character card with custom parser:", e, "Original content:", rawContent);
-        return null;
-    }
-  }
-
-  function createCharCardViewerPopupHtml_ACU(characters) {
-    // Helper function to render a single card/module
-    const renderCard = (title, data, pathPrefix) => {
-        if (!data || Object.keys(data).length === 0) return '';
+                let cardHtml = `<div class="char-card-viewer-card"><h4>${title}</h4>`;
         
-        let cardHtml = `<div class="char-card-viewer-card"><h4>${title}</h4>`;
-
-        // A defined order for fields within a card for consistency
-        const fieldOrder = {
-            '外显资料.基本信息': ['姓名', '性别', '种族_民族', '年龄', '背景_身份', '当前状态概述'],
-            '外显资料.外貌与举止': ['整体印象', '关键外貌特征', '衣着风格', '习惯性动作或姿态', '声音特点'],
-            '内质资料.性格与内在': ['核心性格标签', '主要性格特点描述', '核心动机或目标', '价值观或原则', '内心挣扎或弱点'],
-            '外延资料.社交与能力': ['社交风格', '核心能力或特长', '在他人眼中的印象'],
-            '语言样本': ['语言风格简述', '典型引语']
-        };
-
-        const keys = fieldOrder[pathPrefix] || Object.keys(data);
-
-        for (const key of keys) {
-            if (!data.hasOwnProperty(key)) continue;
-
-            const value = data[key];
-            const currentPath = `${pathPrefix}.${key}`;
-            const label = key.replace(/_/g, ' ');
-
-            // Special handling for complex list-of-objects (Traits, Relationships)
-            if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
-                cardHtml += `<label>${escapeHtml_ACU(label)}</label><div class="char-card-complex-list-container">`;
-                value.forEach((item, itemIndex) => {
-                    cardHtml += `<div class="char-card-complex-list-item">`;
-                    // Ensure consistent order within complex items
-                    const itemKeys = Object.keys(item);
-                    if (key === '核心特质') itemKeys.sort((a,b) => a === '特质名称' ? -1 : 1);
-                    if (key === '关键关系') itemKeys.sort((a,b) => a === '关系对象姓名' ? -1 : 1);
-
-                    for (const itemKey of itemKeys) {
-                        const itemValue = item[itemKey];
-                        const itemPath = `${currentPath}.${itemIndex}.${itemKey}`;
-                        const itemLabel = itemKey.replace(/_/g, ' ');
-                        cardHtml += `<label class="small-label">${escapeHtml_ACU(itemLabel)}</label>`;
-                        
-                        // Handle potential array inside complex object (e.g., 行为/言语实例)
-                        if (Array.isArray(itemValue)) {
-                            cardHtml += `<textarea class="char-card-editor-field" data-path="${itemPath}" data-is-array="true" rows="${Math.max(2, itemValue.length)}">${escapeHtml_ACU(itemValue.join('\n'))}</textarea>`;
-                        } else {
-                             cardHtml += `<textarea class="char-card-editor-field" data-path="${itemPath}" rows="3">${escapeHtml_ACU(itemValue)}</textarea>`;
+                for (const [key, value] of Object.entries(data)) {
+                    // 如果pathPrefix为空，则路径就是键名本身（用于顶层键）
+                    const currentPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+                    const label = getLabel(key);
+        
+                    // Case 1: 嵌套对象 (e.g., exophenotype.basic_info)
+                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                         cardHtml += `<div class="char-card-viewer-sub-card"><h5>${label}</h5>`;
+                         for (const [subKey, subValue] of Object.entries(value)) {
+                            const subPath = `${currentPath}.${subKey}`;
+                            const subLabel = getLabel(subKey);
+                            const useTextarea = (subValue && String(subValue).length > 50) || ['description', 'summary', 'status_summary', 'motivation', 'values', 'struggle'].includes(subKey);
+                            
+                            // 嵌套对象内部的字段
+                            if (Array.isArray(subValue)) {
+                                 cardHtml += `<label class="small-label">${escapeHtml_ACU(subLabel)}</label>`;
+                                 cardHtml += `<textarea class="char-card-editor-field" data-path="${subPath}" data-is-array="true" rows="${Math.max(3, subValue.length)}">${escapeHtml_ACU(subValue.join('\n'))}</textarea>`;
+                            } else {
+                                 cardHtml += `<label class="small-label">${escapeHtml_ACU(subLabel)}</label>`;
+                                 cardHtml += useTextarea
+                                    ? `<textarea class="char-card-editor-field" data-path="${subPath}" rows="4">${escapeHtml_ACU(subValue)}</textarea>`
+                                    : `<input type="text" class="char-card-editor-field" data-path="${subPath}" value="${escapeHtml_ACU(subValue)}">`;
+                            }
+                         }
+                         cardHtml += `</div>`;
+                    }
+                    // Case 2: 复杂列表（对象数组, e.g., traits, relationships）
+                    else if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
+                        cardHtml += `<label>${escapeHtml_ACU(label)}</label><div class="char-card-complex-list-container">`;
+                        value.forEach((item, itemIndex) => {
+                            cardHtml += `<div class="char-card-complex-list-item">`;
+                            for (const [itemKey, itemValue] of Object.entries(item)) {
+                                const itemPath = `${currentPath}.${itemIndex}.${itemKey}`;
+                                const itemLabel = getLabel(itemKey);
+                                
+                                if (Array.isArray(itemValue)) {
+                                    cardHtml += `<label class="small-label">${escapeHtml_ACU(itemLabel)}</label>`;
+                                    cardHtml += `<textarea class="char-card-editor-field" data-path="${itemPath}" data-is-array="true" rows="${Math.max(2, itemValue.length)}">${escapeHtml_ACU(itemValue.join('\n'))}</textarea>`;
+                                } else {
+                                    const useTextarea = (itemValue && String(itemValue).length > 40) || ['definition', 'examples', 'summary', 'description'].includes(itemKey);
+                                    cardHtml += `<label class="small-label">${escapeHtml_ACU(itemLabel)}</label>`;
+                                    cardHtml += useTextarea
+                                        ? `<textarea class="char-card-editor-field" data-path="${itemPath}" rows="${Math.max(2, String(itemValue).split('\n').length)}">${escapeHtml_ACU(itemValue)}</textarea>`
+                                        : `<input type="text" class="char-card-editor-field" data-path="${itemPath}" value="${escapeHtml_ACU(itemValue)}">`;
+                                }
+                            }
+                            cardHtml += `</div>`;
+                        });
+                        cardHtml += `</div>`;
+                    } 
+                    // Case 3: 简单字段
+                    else {
+                        // 顶层的name字段不在这里渲染
+                        if (key !== 'name') {
+                             cardHtml += `<label>${escapeHtml_ACU(label)}</label>`;
+                             const useTextarea = (value && String(value).length > 50);
+                             if (Array.isArray(value)) {
+                                 cardHtml += `<textarea class="char-card-editor-field" data-path="${currentPath}" data-is-array="true" rows="${Math.max(3, value.length)}">${escapeHtml_ACU(value.join('\n'))}</textarea>`;
+                             } else {
+                                 cardHtml += useTextarea
+                                     ? `<textarea class="char-card-editor-field" data-path="${currentPath}" rows="4">${escapeHtml_ACU(value)}</textarea>`
+                                     : `<input type="text" class="char-card-editor-field" data-path="${currentPath}" value="${escapeHtml_ACU(value)}">`;
+                             }
                         }
                     }
-                    cardHtml += `</div>`;
-                });
+                }
                 cardHtml += `</div>`;
-            } 
-            // Handle simple list of strings (e.g., tags, corpus quotes)
-            else if (Array.isArray(value)) {
-                cardHtml += `<label>${escapeHtml_ACU(label)}</label>`;
-                cardHtml += `<textarea class="char-card-editor-field" data-path="${currentPath}" data-is-array="true" rows="${Math.max(3, value.length)}">${escapeHtml_ACU(value.join('\n'))}</textarea>`;
-            } 
-            // Handle single value fields
-            else {
-                cardHtml += `<label>${escapeHtml_ACU(label)}</label>`;
-                const useTextarea = (value && value.toString().length > 50) || key.includes('描述') || key.includes('概述');
-                if (useTextarea) {
-                    cardHtml += `<textarea class="char-card-editor-field" data-path="${currentPath}" rows="4">${escapeHtml_ACU(value)}</textarea>`;
+                return cardHtml;
+            };
+    
+            let html = `<div id="${CHAR_CARD_VIEWER_POPUP_ID}" class="char-card-viewer-popup">`;
+            html += `<div class="char-card-viewer-popup-header">
+                        <h3>角色卡编辑器 (v${Updater_ACU.currentVersion})</h3>
+                        <div class="char-card-viewer-actions">
+                            <button id="char-card-viewer-refresh" class="menu_button" title="从世界书重新加载所有角色卡"><i class="fa-solid fa-arrows-rotate"></i> 刷新</button>
+                            <button class="char-card-viewer-popup-close-button">&times;</button>
+                        </div>
+                     </div>`;
+    
+            if (!characters || characters.length === 0) {
+                html += `<div class="char-card-viewer-popup-body"><p>在主世界书中，没有找到由本扩展生成的任何角色卡。请先进行一次对话或手动更新以生成角色卡。</p></div></div>`;
+                return html;
+            }
+    
+            html += `<div class="char-card-viewer-tabs">`;
+            characters.forEach((char, index) => {
+                const charName = char.parsed?.name || `未知角色 ${index + 1}`;
+                html += `<button class="char-card-viewer-tab-button ${index === 0 ? 'active' : ''}" data-char-uid="${char.uid}">${escapeHtml_ACU(charName)}</button>`;
+            });
+            html += `</div>`;
+    
+            html += `<div class="char-card-viewer-popup-body">`;
+            characters.forEach((char, index) => {
+                const charData = char.parsed;
+                if (!charData) return;
+        
+                const charName = charData.name || `角色 ${index + 1}`;
+                html += `<div class="char-card-viewer-content-pane ${index === 0 ? 'active' : ''}" id="char-content-${char.uid}" data-uid="${char.uid}">`;
+                
+                // --- 最终方案：对每个模块进行独立的、硬编码的渲染调用，并移除“角色基本信息” ---
+                html += renderCard('角色外显 (Exophenotype)', charData.exophenotype, 'exophenotype');
+                html += renderCard('角色内质 (Endophenotype)', charData.endophenotype, 'endophenotype');
+                html += renderCard('角色外延 (Social Ectophenotype)', charData.social_ectophenotype, 'social_ectophenotype');
+                html += renderCard('核心特质 (Traits)', { traits: charData.traits || [] }, '');
+                html += renderCard('语言样本 (Corpus)', charData.corpus, 'corpus');
+                html += renderCard('关键关系 (Relationships)', { relationships: charData.relationships || [] }, '');
+        
+                html += `<button class="char-card-viewer-save-button" data-uid="${char.uid}">保存对 ${escapeHtml_ACU(charName)} 的修改</button>`;
+                html += `</div>`;
+            });
+            html += `</div></div>`;
+            return html;
+        }
+
+  function bindCharCardViewerPopupEvents_ACU(popup$) {
+    /**
+     * @summary 递归地将JS对象转换为自定义的 [key]:value 格式的纯文本。
+     * @description 此函数遍历一个嵌套的JS对象，并根据其结构构建一个扁平化的键值对列表。
+     * @param {object} obj - 要转换的JS对象。
+     * @param {string} prefix - 当前递归层级的路径前缀。
+     * @returns {string} - 生成的格式化文本的一部分。
+     */
+    const buildCustomFormatRecursive_ACU = (obj, prefix = '') => {
+        let result = '';
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const newPrefix = prefix ? `${prefix}.${key}` : key;
+                const value = obj[key];
+
+                if (value === null || value === undefined) continue;
+
+                if (typeof value === 'object' && !Array.isArray(value)) {
+                    result += buildCustomFormatRecursive_ACU(value, newPrefix);
+                } else if (Array.isArray(value)) {
+                    // 检查数组是否包含对象
+                    if (value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
+                        value.forEach((item, index) => {
+                            result += buildCustomFormatRecursive_ACU(item, `${newPrefix}.${index}`);
+                        });
+                    } else {
+                        // 处理简单值数组 (如 tags, quotes)
+                        value.forEach((item, index) => {
+                             result += `[${newPrefix}.${index}]:${item}\n`;
+                        });
+                    }
                 } else {
-                    cardHtml += `<input type="text" class="char-card-editor-field" data-path="${currentPath}" value="${escapeHtml_ACU(value)}">`;
+                    // 处理简单键值对
+                    result += `[${newPrefix}]:${value}\n`;
                 }
             }
         }
-        cardHtml += `</div>`;
-        return cardHtml;
+        return result;
     };
 
-    let html = `<div id="${CHAR_CARD_VIEWER_POPUP_ID}" class="char-card-viewer-popup">`;
-    html += `<div class="char-card-viewer-popup-header">
-                <h3>角色卡编辑器 (v${Updater_ACU.currentVersion})</h3>
-                <div class="char-card-viewer-actions">
-                    <button id="char-card-viewer-refresh" class="menu_button" title="从世界书重新加载所有角色卡"><i class="fa-solid fa-arrows-rotate"></i> 刷新</button>
-                    <button class="char-card-viewer-popup-close-button">&times;</button>
-                </div>
-             </div>`;
+    /**
+     * @summary 包装器函数，用于启动格式生成并添加起始/结束标记。
+     * @param {object} data - 从UI收集的完整数据对象。
+     * @returns {string} - 完整的、准备好保存的格式化文本。
+     */
+    const buildCustomFormat_ACU = (data) => {
+        let content = buildCustomFormatRecursive_ACU(data);
+        // 移除所有 `[key]:` 格式的空行
+        content = content.split('\n').filter(line => line.match(/^\[.*?]:.+/)).join('\n');
+        return `[START_CHAR_CARD]\n${content.trim()}\n[END_CHAR_CARD]`;
+    };
 
-    if (!characters || characters.length === 0) {
-        html += `<div class="char-card-viewer-popup-body"><p>在主世界书中，没有找到由本扩展生成的任何角色卡。请先进行一次对话或手动更新以生成角色卡。</p></div></div>`;
-        return html;
-    }
-
-    // Tabs
-    html += `<div class="char-card-viewer-tabs">`;
-    characters.forEach((char, index) => {
-        const charName = char.parsed?.basicInfo?.姓名 || `未知角色 ${index + 1}`;
-        html += `<button class="char-card-viewer-tab-button ${index === 0 ? 'active' : ''}" data-char-uid="${char.uid}">${escapeHtml_ACU(charName)}</button>`;
+    // --- 事件绑定 ---
+    popup$.find('.char-card-viewer-popup-close-button').on('click', closeCharCardViewerPopup_ACU);
+    popup$.find('#char-card-viewer-refresh').on('click', () => {
+        showToastr_ACU('info', '正在刷新角色数据...');
+        showCharCardViewerPopup_ACU();
     });
-    html += `</div>`;
 
-    // Content Panes
-    html += `<div class="char-card-viewer-popup-body">`;
-    characters.forEach((char, index) => {
-        const charData = char.parsed;
-        const charName = charData?.basicInfo?.姓名 || `角色 ${index + 1}`;
-        html += `<div class="char-card-viewer-content-pane ${index === 0 ? 'active' : ''}" id="char-content-${char.uid}" data-uid="${char.uid}">`;
-        
-        // Render all 6 modules in order
-        html += renderCard('模块一：角色外显 (基本信息)', charData.basicInfo, '外显资料.基本信息');
-        html += renderCard('模块一：角色外显 (外貌与举止)', charData.appearance, '外显资料.外貌与举止');
-        html += renderCard('模块二：角色内质 (性格与内在)', charData.personality, '内质资料.性格与内在');
-        html += renderCard('模块三：角色外延 (社交与能力)', charData.social, '外延资料.社交与能力');
-        html += renderCard('模块四：核心特质', { '核心特质': charData.traits }, '核心特质');
-        html += renderCard('模块五：语言样本', charData.corpus, '语言样本');
-        html += renderCard('模块六：关键关系', { '关键关系': charData.relationships }, '关键关系');
-
-        html += `<button class="char-card-viewer-save-button" data-uid="${char.uid}">保存对 ${escapeHtml_ACU(charName)} 的修改</button>`;
-        html += `</div>`; // end content-pane
+    popup$.find('.char-card-viewer-tab-button').on('click', function () {
+        const $this = jQuery_API_ACU(this);
+        const targetUid = $this.data('char-uid');
+        popup$.find('.char-card-viewer-tab-button').removeClass('active');
+        $this.addClass('active');
+        popup$.find('.char-card-viewer-content-pane').removeClass('active');
+        popup$.find(`#char-content-${targetUid}`).addClass('active');
     });
-    html += `</div>`; // end popup-body
-    html += `</div>`; // end popup
 
-    return html;
-  }
+    popup$.find('.char-card-viewer-save-button').on('click', async function () {
+        const $button = jQuery_API_ACU(this);
+        const targetUid = $button.data('uid');
+        $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 保存中...');
 
-  function bindCharCardViewerPopupEvents_ACU(popup$) {
-      // Final, robust, self-contained YAML builder
-      const buildYamlString_ACU = (data) => {
-          // Helper functions for YAML generation
-          const quote = (str) => `"${(str || '').toString().replace(/"/g, '\\"')}"`;
-          const multiline = (text, indent) => {
-              if (!text || text.trim() === '') return '""';
-              return `|\n${(text || '').split('\n').map(l => `${' '.repeat(indent)}${l}`).join('\n')}`;
-          }
-          const list = (items, indent) => {
-              if (!Array.isArray(items) || items.length === 0) return '';
-              return items.filter(Boolean).map(item => `\n${' '.repeat(indent)}- ${quote(item.trim())}`).join('');
-          };
+        try {
+            const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+            if (!book) throw new Error('未找到主世界书。');
 
-          // A helper to safely get nested properties from the collected data
-          const get = (path) => path.split('.').reduce((o, k) => (o || {})[k], data);
-
-          let yaml = `# <char_${Math.random().toString(36).substring(2, 8)}> # XXXXXX为六位随机编码\n\n`;
-
-          // Module 1: Exophenotype
-          yaml += `# 模块一：角色外显 (Exophenotype)\n`;
-          yaml += `外显资料:\n`;
-          yaml += `  基本信息:\n`;
-          yaml += `    姓名: ${quote(get('外显资料.基本信息.姓名'))}\n`;
-          yaml += `    性别: ${quote(get('外显资料.基本信息.性别'))}\n`;
-          yaml += `    种族_民族: ${quote(get('外显资料.基本信息.种族_民族'))}\n`;
-          yaml += `    年龄: ${quote(get('外显资料.基本信息.年龄'))}\n`;
-          yaml += `    背景_身份: ${quote(get('外显资料.基本信息.背景_身份'))}\n`;
-          yaml += `    当前状态概述: ${multiline(get('外显资料.基本信息.当前状态概述'), 6)}\n`;
-          yaml += `  外貌与举止:\n`;
-          yaml += `    整体印象: ${multiline(get('外显资料.外貌与举止.整体印象'), 6)}\n`;
-          yaml += `    关键外貌特征: ${multiline(get('外显资料.外貌与举止.关键外貌特征'), 6)}\n`;
-          yaml += `    衣着风格: ${multiline(get('外显资料.外貌与举止.衣着风格'), 6)}\n`;
-          yaml += `    习惯性动作或姿态: ${multiline(get('外显资料.外貌与举止.习惯性动作或姿态'), 6)}\n`;
-          yaml += `    声音特点: ${quote(get('外显资料.外貌与举止.声音特点'))}\n\n`;
-
-          // Module 2: Endophenotype
-          yaml += `# 模块二：角色内质 (Endophenotype)\n`;
-          yaml += `内质资料:\n`;
-          yaml += `  性格与内在:\n`;
-          yaml += `    核心性格标签:${list(get('内质资料.性格与内在.核心性格标签'), 6)}\n`;
-          yaml += `    主要性格特点描述: ${multiline(get('内质资料.性格与内在.主要性格特点描述'), 6)}\n`;
-          yaml += `    核心动机或目标: ${multiline(get('内质资料.性格与内在.核心动机或目标'), 6)}\n`;
-          yaml += `    价值观或原则: ${multiline(get('内质资料.性格与内在.价值观或原则'), 6)}\n`;
-          if (get('内质资料.性格与内在.内心挣扎或弱点')) {
-              yaml += `    内心挣扎或弱点: ${multiline(get('内质资料.性格与内在.内心挣扎或弱点'), 6)}\n`;
-          }
-          yaml += `\n`;
-          
-          // Module 3: Social Ectophenotype
-          yaml += `# 模块三：角色外延 (Social Ectophenotype)\n`;
-          yaml += `外延资料:\n`;
-          yaml += `  社交与能力:\n`;
-          yaml += `    社交风格: ${multiline(get('外延资料.社交与能力.社交风格'), 6)}\n`;
-          yaml += `    核心能力或特长: ${multiline(get('外延资料.社交与能力.核心能力或特长'), 6)}\n`;
-          if (get('外延资料.社交与能力.在他人眼中的印象')) {
-              yaml += `    在他人眼中的印象: ${multiline(get('外延资料.社交与能力.在他人眼中的印象'), 6)}\n`;
-          }
-          yaml += `\n`;
-
-          // Module 4: Traits
-          yaml += `# 模块四：角色特质 (Traits)\n`;
-          yaml += `核心特质:`;
-          const traits = get('核心特质.核心特质');
-          if (Array.isArray(traits) && traits.length > 0) {
-              traits.forEach(trait => {
-                  yaml += `\n  - 特质名称: ${quote(trait['特质名称'])}`;
-                  yaml += `\n    核心定义: ${quote(trait['核心定义'])}`;
-                  yaml += `\n    行为/言语实例: ${list(trait['行为/言语实例'], 8)}`;
-              });
-          }
-          yaml += `\n\n`;
-
-          // Module 5: Corpus
-          yaml += `# 模块五：角色语料 (Corpus)\n`;
-          yaml += `# 核心原则是高度还原人物本身的性格，禁止生成任何非人物语言与内心独白的内容。\n`;
-          yaml += `语言样本:\n`;
-          yaml += `  语言风格简述: ${multiline(get('语言样本.语言风格简述'), 4)}\n`;
-          yaml += `  典型引语:${list(get('语言样本.典型引语'), 4)}\n\n`;
-
-          // Module 6: Relationships
-          yaml += `# 模块六：角色关系 (Relationships)\n`;
-          yaml += `关键关系:`;
-          const relationships = get('关键关系.关键关系');
-          if (Array.isArray(relationships) && relationships.length > 0) {
-              relationships.forEach(rel => {
-                  yaml += `\n  - 关系对象姓名: ${quote(rel['关系对象姓名'])}`;
-                  yaml += `\n    关系概述: ${multiline(rel['关系概述'], 6)}`;
-                  if(rel['对主角的影响']) {
-                     yaml += `\n    对主角的影响: ${multiline(rel['对主角的影响'], 6)}`;
-                  }
-              });
-          }
-          yaml += `\n`;
-
-          return yaml;
-      };
-
-      // --- Event Bindings ---
-      popup$.find('.char-card-viewer-popup-close-button').on('click', closeCharCardViewerPopup_ACU);
-      popup$.find('#char-card-viewer-refresh').on('click', () => {
-          showToastr_ACU('info', '正在刷新角色数据...');
-          showCharCardViewerPopup_ACU();
-      });
-
-      popup$.find('.char-card-viewer-tab-button').on('click', function() {
-          const $this = jQuery_API_ACU(this);
-          const targetUid = $this.data('char-uid');
-          popup$.find('.char-card-viewer-tab-button').removeClass('active');
-          $this.addClass('active');
-          popup$.find('.char-card-viewer-content-pane').removeClass('active');
-          popup$.find(`#char-content-${targetUid}`).addClass('active');
-      });
-
-      popup$.find('.char-card-viewer-save-button').on('click', async function() {
-          const $button = jQuery_API_ACU(this);
-          const targetUid = $button.data('uid');
-          $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 保存中...');
-
-          try {
-              const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
-              if (!book) throw new Error('未找到主世界书。');
-
-              const $activePane = popup$.find(`#char-content-${targetUid}`);
-              const collectedData = {};
-
-              // Collect all data from the form fields into a nested object
-              $activePane.find('.char-card-editor-field').each(function() {
-                  const $field = jQuery_API_ACU(this);
-                  const path = $field.data('path');
-                  let value = $field.val();
-
-                  if ($field.data('is-array')) {
-                      value = value.split('\n').map(l => l.trim()).filter(Boolean);
-                  }
-
-                  // Utility to set nested property
-                  let current = collectedData;
-                  const keys = path.split('.');
-                  keys.forEach((key, index) => {
-                      if (index === keys.length - 1) {
-                          current[key] = value;
-                      } else {
-                          // Check if the next key is a number (for arrays of objects)
-                          const nextKeyIsNumber = !isNaN(parseInt(keys[index + 1], 10));
-                          if (!current[key]) {
+            const $activePane = popup$.find(`#char-content-${targetUid}`);
+            const collectedData = {};
+            
+            // 辅助函数：根据路径字符串在对象中设置嵌套值
+            const setNestedValue = (obj, path, value) => {
+                const keys = path.split('.');
+                let current = obj;
+                keys.forEach((key, index) => {
+                    if (index === keys.length - 1) {
+                        // 对于空字符串值，将其转换为null以便后续过滤
+                        current[key] = value === '' ? null : value;
+                    } else {
+                        const nextKeyIsNumber = /^\d+$/.test(keys[index + 1]);
+                        if (!current[key]) {
                             current[key] = nextKeyIsNumber ? [] : {};
-                          }
-                          current = current[key];
-                      }
-                  });
-              });
-              
-              const rebuiltYaml = buildYamlString_ACU(collectedData);
-              const greenLightPrefix = '注意：以下是该角色当前最新的角色卡信息。在后续的剧情生成中，请严格依据此角色卡中描述的最新人物状态进行创作。\n\n';
-              const finalContentToSave = greenLightPrefix + rebuiltYaml;
-              
-              await TavernHelper_API_ACU.setLorebookEntries(book, [{ uid: targetUid, content: finalContentToSave }]);
-              showToastr_ACU('success', '角色卡已成功保存！');
+                        }
+                        current = current[key];
+                    }
+                });
+            };
 
-          } catch (error) {
-              logError_ACU('保存角色卡失败:', error);
-              showToastr_ACU('error', `保存失败: ${error.message}`);
-          } finally {
-              $button.prop('disabled', false).text(`保存修改`);
-          }
-      });
+            // 从表单字段收集所有数据到嵌套对象中
+            $activePane.find('.char-card-editor-field').each(function () {
+                const $field = jQuery_API_ACU(this);
+                const path = $field.data('path');
+                let value = $field.val();
+
+                if ($field.data('is-array')) {
+                    value = value.split('\n').map(l => l.trim()).filter(Boolean);
+                }
+                
+                if(path){
+                   setNestedValue(collectedData, path, value);
+                }
+            });
+            
+            const finalContentToSave = buildCustomFormat_ACU(collectedData);
+
+            const allEntries = await TavernHelper_API_ACU.getLorebookEntries(book);
+            const entryToUpdate = allEntries.find(e => e.uid === targetUid);
+            if (!entryToUpdate) throw new Error('无法在世界书中找到原始条目。');
+            
+            // 使用更新后的内容和保留的原始评论来保存条目
+            await TavernHelper_API_ACU.setLorebookEntries(book, [{ uid: targetUid, content: finalContentToSave, comment: entryToUpdate.comment }]);
+            showToastr_ACU('success', '角色卡已成功保存！');
+
+        } catch (error) {
+            logError_ACU('保存角色卡失败:', error);
+            showToastr_ACU('error', `保存失败: ${error.message}`);
+        } finally {
+            $button.prop('disabled', false).text(`保存修改`);
+        }
+    });
   }
 
   function closeCharCardViewerPopup_ACU() {
-      jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`).remove();
+    jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`).remove();
   }
 
   async function showCharCardViewerPopup_ACU() {
-      closeCharCardViewerPopup_ACU();
-      
-      try {
-          const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
-          if (!book) {
-              showToastr_ACU('warning', '当前角色未设置主世界书。');
-              jQuery_API_ACU('body').append(createCharCardViewerPopupHtml_ACU([]));
-              bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
-              return;
-          }
-          
-          const allEntries = await TavernHelper_API_ACU.getLorebookEntries(book);
-          // 修正：不再按当前聊天过滤，而是查找所有由本扩展生成的角色卡
-          const generalPrefix = `角色卡更新-`;
-          const characterEntries = allEntries.filter(entry => entry.comment && entry.comment.startsWith(generalPrefix) && !entry.comment.endsWith('-人物总揽'));
+    closeCharCardViewerPopup_ACU();
 
-          const characters = characterEntries.map(entry => ({
-              uid: entry.uid,
-              comment: entry.comment,
-              content: entry.content,
-              parsed: parseCharCardYaml_ACU(entry.content)
-          })).filter(c => c.parsed); // Filter out any that failed to parse
-          
-          const popupHtml = createCharCardViewerPopupHtml_ACU(characters);
-          jQuery_API_ACU('body').append(popupHtml);
-      		bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
-
-      } catch (error) {
-          logError_ACU('无法显示角色卡查看器:', error);
-          showToastr_ACU('error', '加载角色卡数据时出错。');
+    try {
+      const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+      if (!book) {
+        showToastr_ACU('warning', '当前角色未设置主世界书。');
+        jQuery_API_ACU('body').append(createCharCardViewerPopupHtml_ACU([]));
+        bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
+        return;
       }
+
+      const allEntries = await TavernHelper_API_ACU.getLorebookEntries(book);
+      const generalPrefix = `角色卡更新-`;
+      const characterEntries = allEntries.filter(
+        entry => entry.comment && entry.comment.startsWith(generalPrefix) && !entry.comment.endsWith('-人物总揽'),
+      );
+
+      const characters = characterEntries
+        .map(entry => ({
+          uid: entry.uid,
+          comment: entry.comment,
+          content: entry.content,
+          parsed: parseCustomFormat_ACU(entry.content),
+        }))
+        .filter(c => c.parsed);
+
+      const popupHtml = createCharCardViewerPopupHtml_ACU(characters);
+      jQuery_API_ACU('body').append(popupHtml);
+      bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
+    } catch (error) {
+      logError_ACU('无法显示角色卡查看器:', error);
+      showToastr_ACU('error', '加载角色卡数据时出错。');
+    }
   }
 
   function toggleCharCardViewerPopup_ACU() {
-      if (jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`).length > 0) {
-          closeCharCardViewerPopup_ACU();
-      } else {
-          showCharCardViewerPopup_ACU();
-      }
+    if (jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`).length > 0) {
+      closeCharCardViewerPopup_ACU();
+    } else {
+      showCharCardViewerPopup_ACU();
+    }
   }
 
   function makeButtonDraggable_ACU(button) {
-      let isDragging = false;
-      let wasDragged = false;
-      let offset = { x: 0, y: 0 };
+    let isDragging = false;
+    let wasDragged = false;
+    let offset = { x: 0, y: 0 };
 
-      button.on('mousedown', function(e) {
-          isDragging = true;
-          wasDragged = false;
-          offset.x = e.clientX - button.offset().left;
-          offset.y = e.clientY - button.offset().top;
-          button.css('cursor', 'grabbing');
-          jQuery_API_ACU('body').css('user-select', 'none');
-      });
+    button.on('mousedown', function (e) {
+      isDragging = true;
+      wasDragged = false;
+      offset.x = e.clientX - button.offset().left;
+      offset.y = e.clientY - button.offset().top;
+      button.css('cursor', 'grabbing');
+      jQuery_API_ACU('body').css('user-select', 'none');
+    });
 
-      jQuery_API_ACU(document).on('mousemove.charCardViewer', function(e) {
-          if (!isDragging) return;
-          wasDragged = true;
-          
-          let newX = e.clientX - offset.x;
-          let newY = e.clientY - offset.y;
-          
-          newX = Math.max(0, Math.min(newX, window.innerWidth - button.outerWidth()));
-          newY = Math.max(0, Math.min(newY, window.innerHeight - button.outerHeight()));
+    jQuery_API_ACU(document).on('mousemove.charCardViewer', function (e) {
+      if (!isDragging) return;
+      wasDragged = true;
 
-          button.css({ top: newY + 'px', left: newX + 'px', right: '', bottom: '' });
-      });
+      let newX = e.clientX - offset.x;
+      let newY = e.clientY - offset.y;
 
-      jQuery_API_ACU(document).on('mouseup.charCardViewer', function() {
-          if (!isDragging) return;
-          isDragging = false;
-          button.css('cursor', 'grab');
-          jQuery_API_ACU('body').css('user-select', 'auto');
-          localStorage.setItem(STORAGE_KEY_VIEWER_BUTTON_POS_ACU, JSON.stringify({ top: button.css('top'), left: button.css('left') }));
-      });
-      
-      button.on('click', function(e) {
-          if (wasDragged) {
-              e.stopPropagation();
-              return;
-          }
-          toggleCharCardViewerPopup_ACU();
-      });
+      newX = Math.max(0, Math.min(newX, window.innerWidth - button.outerWidth()));
+      newY = Math.max(0, Math.min(newY, window.innerHeight - button.outerHeight()));
+
+      button.css({ top: newY + 'px', left: newX + 'px', right: '', bottom: '' });
+    });
+
+    jQuery_API_ACU(document).on('mouseup.charCardViewer', function () {
+      if (!isDragging) return;
+      isDragging = false;
+      button.css('cursor', 'grab');
+      jQuery_API_ACU('body').css('user-select', 'auto');
+      localStorage.setItem(
+        STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
+        JSON.stringify({ top: button.css('top'), left: button.css('left') }),
+      );
+    });
+
+    button.on('click', function (e) {
+      if (wasDragged) {
+        e.stopPropagation();
+        return;
+      }
+      toggleCharCardViewerPopup_ACU();
+    });
+  }
+
+  function clampButtonPosition_ACU($button) {
+    if (!$button || $button.length === 0) return;
+
+    const buttonWidth = $button.outerWidth();
+    const buttonHeight = $button.outerHeight();
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    let currentPos = $button.offset();
+    let newX = currentPos.left;
+    let newY = currentPos.top;
+
+    let needsUpdate = false;
+
+    if (newX + buttonWidth > windowWidth) {
+        newX = windowWidth - buttonWidth;
+        needsUpdate = true;
+    }
+    if (newX < 0) {
+        newX = 0;
+        needsUpdate = true;
+    }
+    if (newY + buttonHeight > windowHeight) {
+        newY = windowHeight - buttonHeight;
+        needsUpdate = true;
+    }
+    if (newY < 0) {
+        newY = 0;
+        needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+        $button.css({ top: newY + 'px', left: newX + 'px' });
+        // Also update the stored position
+        localStorage.setItem(
+            STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
+            JSON.stringify({ top: newY + 'px', left: newX + 'px' })
+        );
+    }
   }
 
   function initializeCharCardViewer_ACU() {
-      if (jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).length > 0) {
-          logDebug_ACU('角色卡查看器按钮已存在。');
-          return;
-      }
-      logDebug_ACU('正在创建角色卡查看器按钮...');
+    if (jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).length > 0) {
+      logDebug_ACU('角色卡查看器按钮已存在。');
+      return;
+    }
+    logDebug_ACU('正在创建角色卡查看器按钮...');
 
-      const buttonHtml = `<div id="${CHAR_CARD_VIEWER_BUTTON_ID}" title="查看角色卡" class="fa-solid fa-address-card"></div>`;
-      jQuery_API_ACU('body').append(buttonHtml);
-      logDebug_ACU('角色卡查看器按钮已附加到body。 元素数量:', jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).length);
-      
-      const $viewerButton = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`);
-      
-      makeButtonDraggable_ACU($viewerButton);
-      
-      const savedPosition = JSON.parse(localStorage.getItem(STORAGE_KEY_VIEWER_BUTTON_POS_ACU) || 'null');
-      if (savedPosition) {
-          $viewerButton.css({ top: savedPosition.top, left: savedPosition.left });
-      } else {
-          $viewerButton.css({ top: '120px', right: '10px', left: 'auto' });
-      }
+    const buttonHtml = `<div id="${CHAR_CARD_VIEWER_BUTTON_ID}" title="查看角色卡" class="fa-solid fa-address-card"></div>`;
+    jQuery_API_ACU('body').append(buttonHtml);
+    logDebug_ACU('角色卡查看器按钮已附加到body。 元素数量:', jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).length);
 
-      $viewerButton.toggle(viewerEnabled_ACU);
-      logDebug_ACU('角色卡查看器按钮可见性切换为:', viewerEnabled_ACU, '. 当前是否可见:', $viewerButton.is(':visible'));
+    const $viewerButton = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`);
+
+    makeButtonDraggable_ACU($viewerButton);
+
+    const savedPosition = JSON.parse(localStorage.getItem(STORAGE_KEY_VIEWER_BUTTON_POS_ACU) || 'null');
+    if (savedPosition) {
+      $viewerButton.css({ top: savedPosition.top, left: savedPosition.left });
+    } else {
+      $viewerButton.css({ top: '120px', right: '10px', left: 'auto' });
+    }
+
+    // Add window resize listener to keep the button in view
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            clampButtonPosition_ACU($viewerButton);
+        }, 100); 
+    });
+    
+    // Initial check on load
+    clampButtonPosition_ACU($viewerButton);
+
+    $viewerButton.toggle(viewerEnabled_ACU);
+    logDebug_ACU('角色卡查看器按钮可见性切换为:', viewerEnabled_ACU, '. 当前是否可见:', $viewerButton.is(':visible'));
   }
 
-    function loadSettings_ACU() {
+  function loadSettings_ACU() {
     try {
       const savedConfigJson = localStorage.getItem(STORAGE_KEY_API_CONFIG_ACU);
       if (savedConfigJson) {
@@ -789,13 +905,13 @@
       logError_ACU('加载自动更新阈值失败:', error);
       autoUpdateThreshold_ACU = DEFAULT_AUTO_UPDATE_THRESHOLD_ACU;
     }
-    
+
     try {
       const savedAutoUpdateEnabled = localStorage.getItem(STORAGE_KEY_AUTO_UPDATE_ENABLED_ACU);
-      autoUpdateEnabled_ACU = savedAutoUpdateEnabled === null ? true : savedAutoUpdateEnabled === 'true'; 
+      autoUpdateEnabled_ACU = savedAutoUpdateEnabled === null ? true : savedAutoUpdateEnabled === 'true';
     } catch (error) {
       logError_ACU('加载角色卡自动更新启用状态失败:', error);
-      autoUpdateEnabled_ACU = true; 
+      autoUpdateEnabled_ACU = true;
     }
 
     try {
@@ -805,38 +921,46 @@
       logError_ACU('加载角色卡查看器启用状态失败:', error);
       viewerEnabled_ACU = true;
     }
-    
+
     logDebug_ACU('配置已加载');
     updateUiWithSettings();
   }
 
   function updateUiWithSettings() {
-      if (!$extensionSettingsPanel) return;
+    if (!$extensionSettingsPanel) return;
 
-      $extensionSettingsPanel.find('#autoCardUpdater-api-url').val(customApiConfig_ACU.url);
-      $extensionSettingsPanel.find('#autoCardUpdater-api-key').val(customApiConfig_ACU.apiKey);
-      const $modelSelect = $extensionSettingsPanel.find('#autoCardUpdater-api-model');
-      if (customApiConfig_ACU.model) {
-          $modelSelect.empty().append(`<option value="${escapeHtml_ACU(customApiConfig_ACU.model)}">${escapeHtml_ACU(customApiConfig_ACU.model)} (已保存)</option>`);
-      } else {
-          $modelSelect.empty().append('<option value="">请先加载并选择模型</option>');
-      }
-      updateApiStatusDisplay_ACU();
-      
-      $extensionSettingsPanel.find('#autoCardUpdater-break-armor-prompt-textarea').val(currentBreakArmorPrompt_ACU);
-      $extensionSettingsPanel.find('#autoCardUpdater-char-card-prompt-textarea').val(currentCharCardPrompt_ACU);
-      
-      $extensionSettingsPanel.find('#autoCardUpdater-auto-update-threshold').val(autoUpdateThreshold_ACU);
-      $extensionSettingsPanel.find('#autoCardUpdater-auto-update-enabled-checkbox').prop('checked', autoUpdateEnabled_ACU);
-      $extensionSettingsPanel.find('#char-card-viewer-enabled-checkbox').prop('checked', viewerEnabled_ACU);
+    $extensionSettingsPanel.find('#autoCardUpdater-api-url').val(customApiConfig_ACU.url);
+    $extensionSettingsPanel.find('#autoCardUpdater-api-key').val(customApiConfig_ACU.apiKey);
+    const $modelSelect = $extensionSettingsPanel.find('#autoCardUpdater-api-model');
+    if (customApiConfig_ACU.model) {
+      $modelSelect
+        .empty()
+        .append(
+          `<option value="${escapeHtml_ACU(customApiConfig_ACU.model)}">${escapeHtml_ACU(
+            customApiConfig_ACU.model,
+          )} (已保存)</option>`,
+        );
+    } else {
+      $modelSelect.empty().append('<option value="">请先加载并选择模型</option>');
+    }
+    updateApiStatusDisplay_ACU();
+
+    $extensionSettingsPanel.find('#autoCardUpdater-break-armor-prompt-textarea').val(currentBreakArmorPrompt_ACU);
+    $extensionSettingsPanel.find('#autoCardUpdater-char-card-prompt-textarea').val(currentCharCardPrompt_ACU);
+
+    $extensionSettingsPanel.find('#autoCardUpdater-auto-update-threshold').val(autoUpdateThreshold_ACU);
+    $extensionSettingsPanel
+      .find('#autoCardUpdater-auto-update-enabled-checkbox')
+      .prop('checked', autoUpdateEnabled_ACU);
+    $extensionSettingsPanel.find('#char-card-viewer-enabled-checkbox').prop('checked', viewerEnabled_ACU);
   }
 
   // ... 各种 save/clear/reset 函数
-    function saveApiConfig_ACU() {
+  function saveApiConfig_ACU() {
     customApiConfig_ACU.url = $extensionSettingsPanel.find('#autoCardUpdater-api-url').val().trim();
     customApiConfig_ACU.apiKey = $extensionSettingsPanel.find('#autoCardUpdater-api-key').val();
     customApiConfig_ACU.model = $extensionSettingsPanel.find('#autoCardUpdater-api-model').val();
-    
+
     if (!customApiConfig_ACU.url) {
       showToastr_ACU('warning', 'API URL 不能为空。');
       updateApiStatusDisplay_ACU();
@@ -862,8 +986,8 @@
       logError_ACU('清除API配置失败:', error);
     }
   }
-  
-    function saveCustomBreakArmorPrompt_ACU() {
+
+  function saveCustomBreakArmorPrompt_ACU() {
     const newPrompt = $extensionSettingsPanel.find('#autoCardUpdater-break-armor-prompt-textarea').val().trim();
     if (!newPrompt) {
       showToastr_ACU('warning', '破甲预设不能为空。');
@@ -888,8 +1012,8 @@
       logError_ACU('恢复破甲预设失败:', error);
     }
   }
-  
-    function saveCustomCharCardPrompt_ACU() {
+
+  function saveCustomCharCardPrompt_ACU() {
     const newPrompt = $extensionSettingsPanel.find('#autoCardUpdater-char-card-prompt-textarea').val().trim();
     if (!newPrompt) {
       showToastr_ACU('warning', '角色卡预设不能为空。');
@@ -931,11 +1055,11 @@
       $extensionSettingsPanel.find('#autoCardUpdater-auto-update-threshold').val(autoUpdateThreshold_ACU);
     }
   }
-  
+
   // --- 核心逻辑函数 ---
   // ... (此处将包含所有核心业务逻辑函数，如 fetchModelsAndConnect_ACU, callCustomOpenAI_ACU, proceedWithCardUpdate_ACU 等)
   // 它们基本保持不变，因为它们不直接与UI强耦合
-    async function fetchModelsAndConnect_ACU() {
+  async function fetchModelsAndConnect_ACU() {
     const apiUrl = $extensionSettingsPanel.find('#autoCardUpdater-api-url').val().trim();
     const apiKey = $extensionSettingsPanel.find('#autoCardUpdater-api-key').val();
     const $modelSelect = $extensionSettingsPanel.find('#autoCardUpdater-api-model');
@@ -948,10 +1072,10 @@
     }
     let baseUrl = apiUrl;
     if (baseUrl.endsWith('/')) {
-        baseUrl = baseUrl.slice(0, -1);
+      baseUrl = baseUrl.slice(0, -1);
     }
     if (baseUrl.endsWith('/v1')) {
-        baseUrl = baseUrl.slice(0, -3);
+      baseUrl = baseUrl.slice(0, -3);
     }
     const modelsUrl = `${baseUrl}/v1/models`;
 
@@ -960,10 +1084,10 @@
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-      
+
       const response = await fetch(modelsUrl, { method: 'GET', headers: headers });
       if (!response.ok) throw new Error(`获取模型列表失败: ${response.status}`);
-      
+
       const data = await response.json();
       $modelSelect.empty();
       let models = data.data || data; // 支持 OpenAI 和 Ooba/LMStudio 格式
@@ -982,69 +1106,77 @@
     }
     updateApiStatusDisplay_ACU();
   }
-  
-    function updateApiStatusDisplay_ACU() {
+
+  function updateApiStatusDisplay_ACU() {
     if (!$extensionSettingsPanel) return;
     const $apiStatus = $extensionSettingsPanel.find('#autoCardUpdater-api-status');
     if (customApiConfig_ACU.url && customApiConfig_ACU.model) {
-        $apiStatus.html(`当前URL: <span style="color:lightgreen;word-break:break-all;">${escapeHtml_ACU(customApiConfig_ACU.url)}</span><br>已选模型: <span style="color:lightgreen;">${escapeHtml_ACU(customApiConfig_ACU.model)}</span>`);
+      $apiStatus.html(
+        `当前URL: <span style="color:lightgreen;word-break:break-all;">${escapeHtml_ACU(
+          customApiConfig_ACU.url,
+        )}</span><br>已选模型: <span style="color:lightgreen;">${escapeHtml_ACU(customApiConfig_ACU.model)}</span>`,
+      );
     } else if (customApiConfig_ACU.url) {
-        $apiStatus.html(`当前URL: ${escapeHtml_ACU(customApiConfig_ACU.url)} - <span style="color:orange;">请加载并选择模型</span>`);
+      $apiStatus.html(
+        `当前URL: ${escapeHtml_ACU(customApiConfig_ACU.url)} - <span style="color:orange;">请加载并选择模型</span>`,
+      );
     } else {
-        $apiStatus.html(`<span style="color:#ffcc80;">未配置自定义API。</span>`);
+      $apiStatus.html(`<span style="color:#ffcc80;">未配置自定义API。</span>`);
     }
   }
 
   // --- 初始化与事件绑定 ---
   function bindSettingsEvents() {
     if (!$extensionSettingsPanel) return;
-    
+
     // 为所有可折叠的头部绑定事件
-    $extensionSettingsPanel.on('click', '.inline-drawer-toggle', function() {
-        const drawer = jQuery_API_ACU(this).closest('.inline-drawer');
-        drawer.toggleClass('open');
-        // 可选：如果需要更精细的动画，可以针对内容区域使用 slideToggle
-        // drawer.find('.inline-drawer-content').first().slideToggle();
+    $extensionSettingsPanel.on('click', '.inline-drawer-toggle', function () {
+      const drawer = jQuery_API_ACU(this).closest('.inline-drawer');
+      drawer.toggleClass('open');
+      // 可选：如果需要更精细的动画，可以针对内容区域使用 slideToggle
+      // drawer.find('.inline-drawer-content').first().slideToggle();
     });
 
     // 按钮事件
     $extensionSettingsPanel.on('click', '#autoCardUpdater-load-models', fetchModelsAndConnect_ACU);
     $extensionSettingsPanel.on('click', '#autoCardUpdater-save-config', saveApiConfig_ACU);
     $extensionSettingsPanel.on('click', '#autoCardUpdater-clear-config', clearApiConfig_ACU);
-    
+
     $extensionSettingsPanel.on('click', '#autoCardUpdater-save-break-armor-prompt', saveCustomBreakArmorPrompt_ACU);
     $extensionSettingsPanel.on('click', '#autoCardUpdater-reset-break-armor-prompt', resetDefaultBreakArmorPrompt_ACU);
 
     $extensionSettingsPanel.on('click', '#autoCardUpdater-save-char-card-prompt', saveCustomCharCardPrompt_ACU);
     $extensionSettingsPanel.on('click', '#autoCardUpdater-reset-char-card-prompt', resetDefaultCharCardPrompt_ACU);
-    
+
     $extensionSettingsPanel.on('click', '#autoCardUpdater-save-auto-update-threshold', saveAutoUpdateThreshold_ACU);
-    
+
     $extensionSettingsPanel.on('click', '#autoCardUpdater-manual-update-card', handleManualUpdateCard_ACU);
 
     // 更新器事件
-    $extensionSettingsPanel.on('click', '#auto-card-updater-check-for-updates', () => Updater_ACU.checkForUpdates(true));
+    $extensionSettingsPanel.on('click', '#auto-card-updater-check-for-updates', () =>
+      Updater_ACU.checkForUpdates(true),
+    );
 
     // 开关事件
     $extensionSettingsPanel.on('change', '#autoCardUpdater-auto-update-enabled-checkbox', function () {
-        autoUpdateEnabled_ACU = jQuery_API_ACU(this).is(':checked');
-        try {
-            localStorage.setItem(STORAGE_KEY_AUTO_UPDATE_ENABLED_ACU, autoUpdateEnabled_ACU.toString());
-            showToastr_ACU('info', `角色卡自动更新已 ${autoUpdateEnabled_ACU ? '启用' : '禁用'}`);
-        } catch (error) {
-            logError_ACU('保存自动更新开关状态失败:', error);
-        }
+      autoUpdateEnabled_ACU = jQuery_API_ACU(this).is(':checked');
+      try {
+        localStorage.setItem(STORAGE_KEY_AUTO_UPDATE_ENABLED_ACU, autoUpdateEnabled_ACU.toString());
+        showToastr_ACU('info', `角色卡自动更新已 ${autoUpdateEnabled_ACU ? '启用' : '禁用'}`);
+      } catch (error) {
+        logError_ACU('保存自动更新开关状态失败:', error);
+      }
     });
 
     $extensionSettingsPanel.on('change', '#char-card-viewer-enabled-checkbox', function () {
-        viewerEnabled_ACU = jQuery_API_ACU(this).is(':checked');
-        try {
-            localStorage.setItem(STORAGE_KEY_VIEWER_ENABLED_ACU, viewerEnabled_ACU.toString());
-            jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).toggle(viewerEnabled_ACU);
-            showToastr_ACU('info', `角色卡查看器已 ${viewerEnabled_ACU ? '启用' : '禁用'}`);
-        } catch (error) {
-            logError_ACU('保存角色卡查看器开关状态失败:', error);
-        }
+      viewerEnabled_ACU = jQuery_API_ACU(this).is(':checked');
+      try {
+        localStorage.setItem(STORAGE_KEY_VIEWER_ENABLED_ACU, viewerEnabled_ACU.toString());
+        jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).toggle(viewerEnabled_ACU);
+        showToastr_ACU('info', `角色卡查看器已 ${viewerEnabled_ACU ? '启用' : '禁用'}`);
+      } catch (error) {
+        logError_ACU('保存角色卡查看器开关状态失败:', error);
+      }
     });
   }
 
@@ -1060,59 +1192,70 @@
 
     // 手动加载和注入UI
     try {
-        const settingsHtml = await jQuery_API_ACU.get(`${extensionFolderPath_ACU}/settings.html`);
-        jQuery_API_ACU("#extensions_settings2").append(settingsHtml);
+      const settingsHtml = await jQuery_API_ACU.get(`${extensionFolderPath_ACU}/settings.html`);
+      jQuery_API_ACU('#extensions_settings2').append(settingsHtml);
     } catch (error) {
-        console.error(`[${extensionName_ACU}] Failed to load settings.html:`, error);
-        toastr_API_ACU.error("无法加载角色卡自动更新扩展的设置界面。");
-        return;
+      console.error(`[${extensionName_ACU}] Failed to load settings.html:`, error);
+      toastr_API_ACU.error('无法加载角色卡自动更新扩展的设置界面。');
+      return;
     }
-    
+
     // 定位到我们的设置面板
     $extensionSettingsPanel = jQuery_API_ACU(`.extension_settings[data-extension-name="${extensionName_ACU}"]`);
 
     if ($extensionSettingsPanel.length === 0) {
-        console.error(`[${extensionName_ACU}] 未找到扩展设置面板!`);
-        return;
+      console.error(`[${extensionName_ACU}] 未找到扩展设置面板!`);
+      return;
     }
-    
-    logDebug_ACU("扩展初始化开始...");
+
+    logDebug_ACU('扩展初始化开始...');
 
     loadSettings_ACU();
     bindSettingsEvents();
     initializeCharCardViewer_ACU();
-    
+
     // 初始更新检查
     Updater_ACU.checkForUpdates(false);
 
     // 注册SillyTavern事件
-    SillyTavern_API_ACU.tavern_events.on(SillyTavern_API_ACU.tavern_events.CHAT_CHANGED, resetScriptStateForNewChat_ACU);
+    SillyTavern_API_ACU.tavern_events.on(
+      SillyTavern_API_ACU.tavern_events.CHAT_CHANGED,
+      resetScriptStateForNewChat_ACU,
+    );
     const newMessageEvents = ['MESSAGE_SENT', 'MESSAGE_RECEIVED', 'CHAT_UPDATED', 'STREAM_ENDED'];
     newMessageEvents.forEach(evName => {
-        if (SillyTavern_API_ACU.tavern_events[evName]) {
-            SillyTavern_API_ACU.tavern_events.on(SillyTavern_API_ACU.tavern_events[evName], () => handleNewMessageDebounced_ACU(evName));
-        }
+      if (SillyTavern_API_ACU.tavern_events[evName]) {
+        SillyTavern_API_ACU.tavern_events.on(SillyTavern_API_ACU.tavern_events[evName], () =>
+          handleNewMessageDebounced_ACU(evName),
+        );
+      }
     });
 
     resetScriptStateForNewChat_ACU();
-    
+
     // 启动轮询
     clearInterval(pollingIntervalId_ACU);
     pollingIntervalId_ACU = setInterval(pollChatMessages_ACU, 300000); // 5分钟
 
-    logDebug_ACU("扩展初始化成功!");
-    toastr_API_ACU.success("角色卡自动更新扩展已加载！");
+    logDebug_ACU('扩展初始化成功!');
+    toastr_API_ACU.success('角色卡自动更新扩展已加载！');
   }
-  
+
   async function loadAllChatMessages_ACU() {
     if (!TavernHelper_API_ACU) return;
     try {
-      const lastMessageId = TavernHelper_API_ACU.getLastMessageId ? TavernHelper_API_ACU.getLastMessageId() : (SillyTavern_API_ACU.chat?.length ? SillyTavern_API_ACU.chat.length - 1 : -1);
+      const lastMessageId = TavernHelper_API_ACU.getLastMessageId
+        ? TavernHelper_API_ACU.getLastMessageId()
+        : SillyTavern_API_ACU.chat?.length
+        ? SillyTavern_API_ACU.chat.length - 1
+        : -1;
       if (lastMessageId < 0) {
         allChatMessages_ACU = [];
         return;
       }
-      const messagesFromApi = await TavernHelper_API_ACU.getChatMessages(`0-${lastMessageId}`, { include_swipes: false });
+      const messagesFromApi = await TavernHelper_API_ACU.getChatMessages(`0-${lastMessageId}`, {
+        include_swipes: false,
+      });
       allChatMessages_ACU = messagesFromApi ? messagesFromApi.map((msg, idx) => ({ ...msg, id: idx })) : [];
       logDebug_ACU(`Loaded ${allChatMessages_ACU.length} messages for: ${currentChatFileIdentifier_ACU}.`);
       updateCardUpdateStatusDisplay_ACU();
@@ -1123,55 +1266,59 @@
   }
 
   async function updateCardUpdateStatusDisplay_ACU() {
-      if (!$extensionSettingsPanel) return;
-      const $statusDisplay = $extensionSettingsPanel.find('#autoCardUpdater-card-update-status-display');
-      const $totalMessagesDisplay = $extensionSettingsPanel.find('#autoCardUpdater-total-messages-display');
+    if (!$extensionSettingsPanel) return;
+    const $statusDisplay = $extensionSettingsPanel.find('#autoCardUpdater-card-update-status-display');
+    const $totalMessagesDisplay = $extensionSettingsPanel.find('#autoCardUpdater-total-messages-display');
 
-      $totalMessagesDisplay.text(`上下文总层数: ${allChatMessages_ACU.length}`);
+    $totalMessagesDisplay.text(`上下文总层数: ${allChatMessages_ACU.length}`);
 
-      if (!currentChatFileIdentifier_ACU || currentChatFileIdentifier_ACU.startsWith('unknown_chat')) {
-          $statusDisplay.text('当前聊天未知，无法获取更新状态。');
-          return;
+    if (!currentChatFileIdentifier_ACU || currentChatFileIdentifier_ACU.startsWith('unknown_chat')) {
+      $statusDisplay.text('当前聊天未知，无法获取更新状态。');
+      return;
+    }
+
+    try {
+      const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+      if (!primaryLorebookName) {
+        $statusDisplay.text('当前角色未设置主世界书。');
+        return;
+      }
+      const entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName);
+      const entryPrefixForCurrentChat = `角色卡更新-${currentChatFileIdentifier_ACU}-`;
+
+      let latestEntryToShow = null;
+      let maxEndFloorOverall = -1;
+
+      for (const entry of entries) {
+        if (entry.comment && entry.comment.startsWith(entryPrefixForCurrentChat)) {
+          const match = entry.comment.match(/-(\d+)-(\d+)$/);
+          if (match && match[2]) {
+            const endFloor = parseInt(match[2], 10);
+            if (endFloor > maxEndFloorOverall) {
+              maxEndFloorOverall = endFloor;
+              latestEntryToShow = entry;
+            }
+          }
+        }
       }
 
-      try {
-          const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
-          if (!primaryLorebookName) {
-              $statusDisplay.text('当前角色未设置主世界书。');
-              return;
-          }
-          const entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName);
-          const entryPrefixForCurrentChat = `角色卡更新-${currentChatFileIdentifier_ACU}-`;
-          
-          let latestEntryToShow = null;
-          let maxEndFloorOverall = -1;
-
-          for (const entry of entries) {
-              if (entry.comment && entry.comment.startsWith(entryPrefixForCurrentChat)) {
-                  const match = entry.comment.match(/-(\d+)-(\d+)$/);
-                  if (match && match[2]) {
-                      const endFloor = parseInt(match[2], 10);
-                      if (endFloor > maxEndFloorOverall) {
-                          maxEndFloorOverall = endFloor;
-                          latestEntryToShow = entry;
-                      }
-                  }
-              }
-          }
-
-          if (latestEntryToShow) {
-              const commentParts = latestEntryToShow.comment.split('-');
-              const charNameInComment = commentParts.slice(2, -2).join('-');
-              const startFloorStr = commentParts[commentParts.length - 2];
-              const endFloorStr = commentParts[commentParts.length - 1];
-              $statusDisplay.html(`最新更新: 角色 <b>${escapeHtml_ACU(charNameInComment)}</b> (基于楼层 <b>${startFloorStr}-${endFloorStr}</b>)`);
-          } else {
-              $statusDisplay.text('当前聊天信息尚未在世界书中更新。');
-          }
-      } catch (e) {
-          logError_ACU('Failed to load/parse lorebook entries for UI status:', e);
-          $statusDisplay.text('获取世界书更新状态时出错。');
+      if (latestEntryToShow) {
+        const commentParts = latestEntryToShow.comment.split('-');
+        const charNameInComment = commentParts.slice(2, -2).join('-');
+        const startFloorStr = commentParts[commentParts.length - 2];
+        const endFloorStr = commentParts[commentParts.length - 1];
+        $statusDisplay.html(
+          `最新更新: 角色 <b>${escapeHtml_ACU(
+            charNameInComment,
+          )}</b> (基于楼层 <b>${startFloorStr}-${endFloorStr}</b>)`,
+        );
+      } else {
+        $statusDisplay.text('当前聊天信息尚未在世界书中更新。');
       }
+    } catch (e) {
+      logError_ACU('Failed to load/parse lorebook entries for UI status:', e);
+      $statusDisplay.text('获取世界书更新状态时出错。');
+    }
   }
 
   async function resetScriptStateForNewChat_ACU() {
@@ -1179,21 +1326,22 @@
     allChatMessages_ACU = [];
     let chatNameFromCommand = null;
     try {
-        chatNameFromCommand = await TavernHelper_API_ACU.triggerSlash('/getchatname');
+      chatNameFromCommand = await TavernHelper_API_ACU.triggerSlash('/getchatname');
     } catch (error) {
-        logError_ACU('Error calling /getchatname:', error);
+      logError_ACU('Error calling /getchatname:', error);
     }
 
     if (chatNameFromCommand && typeof chatNameFromCommand === 'string' && chatNameFromCommand.trim()) {
-        currentChatFileIdentifier_ACU = cleanChatName_ACU(chatNameFromCommand.trim());
+      currentChatFileIdentifier_ACU = cleanChatName_ACU(chatNameFromCommand.trim());
     } else {
-        const contextFallback = SillyTavern_API_ACU.getContext();
-        currentChatFileIdentifier_ACU = (contextFallback && contextFallback.chat) ? cleanChatName_ACU(contextFallback.chat) : 'unknown_chat_fallback';
+      const contextFallback = SillyTavern_API_ACU.getContext();
+      currentChatFileIdentifier_ACU =
+        contextFallback && contextFallback.chat ? cleanChatName_ACU(contextFallback.chat) : 'unknown_chat_fallback';
     }
-    
+
     lastMessageCount_ACU = -1;
     logDebug_ACU(`currentChatFileIdentifier set to: "${currentChatFileIdentifier_ACU}"`);
-    
+
     await loadAllChatMessages_ACU();
     await manageAutoCardUpdateLorebookEntry_ACU();
     await triggerAutomaticUpdateIfNeeded_ACU();
@@ -1229,7 +1377,13 @@
   }
 
   async function triggerAutomaticUpdateIfNeeded_ACU() {
-    if (!autoUpdateEnabled_ACU || isAutoUpdatingCard_ACU || !customApiConfig_ACU.url || !customApiConfig_ACU.model || allChatMessages_ACU.length === 0) {
+    if (
+      !autoUpdateEnabled_ACU ||
+      isAutoUpdatingCard_ACU ||
+      !customApiConfig_ACU.url ||
+      !customApiConfig_ACU.model ||
+      allChatMessages_ACU.length === 0
+    ) {
       return;
     }
 
@@ -1267,29 +1421,29 @@
       isAutoUpdatingCard_ACU = false;
     }
   }
-  
+
   function prepareAIInput_ACU(messages, lorebookContent) {
     let chatHistoryText = '最近的聊天记录摘要:\n';
     if (messages && messages.length > 0) {
       chatHistoryText += messages
-        .map(msg => `${msg.is_user ? (SillyTavern_API_ACU?.name1 || '用户') : (msg.name || '角色')}: ${msg.message}`)
+        .map(msg => `${msg.is_user ? SillyTavern_API_ACU?.name1 || '用户' : msg.name || '角色'}: ${msg.message}`)
         .join('\n\n');
     } else {
       chatHistoryText += '(无聊天记录提供)';
     }
     return `${chatHistoryText}\n\n请根据以上聊天记录更新角色描述：`;
   }
-  
+
   async function callCustomOpenAI_ACU(systemMsgContent, userPromptContent) {
     if (!customApiConfig_ACU.url || !customApiConfig_ACU.model) throw new Error('API URL/Model未配置。');
     const combinedSystemPrompt = `${currentBreakArmorPrompt_ACU}\n\n${currentCharCardPrompt_ACU}`;
-    
+
     let baseUrl = customApiConfig_ACU.url;
     if (baseUrl.endsWith('/')) {
-        baseUrl = baseUrl.slice(0, -1);
+      baseUrl = baseUrl.slice(0, -1);
     }
     if (baseUrl.endsWith('/v1')) {
-        baseUrl = baseUrl.slice(0, -3);
+      baseUrl = baseUrl.slice(0, -3);
     }
     const fullApiUrl = `${baseUrl}/v1/chat/completions`;
 
@@ -1297,9 +1451,12 @@
     if (customApiConfig_ACU.apiKey) headers['Authorization'] = `Bearer ${customApiConfig_ACU.apiKey}`;
     const body = JSON.stringify({
       model: customApiConfig_ACU.model,
-      messages: [{ role: 'system', content: combinedSystemPrompt }, { role: 'user', content: userPromptContent }],
+      messages: [
+        { role: 'system', content: combinedSystemPrompt },
+        { role: 'user', content: userPromptContent },
+      ],
     });
-    
+
     const response = await fetch(fullApiUrl, { method: 'POST', headers, body });
     if (!response.ok) {
       const errTxt = await response.text();
@@ -1311,7 +1468,7 @@
     }
     throw new Error('API响应格式不正确。');
   }
-  
+
   async function updateCharacterRosterLorebookEntry_ACU(processedCharacterNames) {
     if (!Array.isArray(processedCharacterNames) || processedCharacterNames.length === 0) return true;
 
@@ -1325,7 +1482,7 @@
       const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
       if (!primaryLorebookName) return false;
 
-      let entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName) || [];
+      let entries = (await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName)) || [];
       let existingRosterEntry = entries.find(entry => entry.comment === rosterEntryComment);
       let existingNames = new Set();
 
@@ -1338,23 +1495,36 @@
 
       processedCharacterNames.forEach(name => existingNames.add(name.trim()));
 
-      const newContent = initialContentPrefix + [...existingNames].sort().map(name => `[${name}: (详细信息见对应绿灯条目)]`).join('\n');
+      const newContent =
+        initialContentPrefix +
+        [...existingNames]
+          .sort()
+          .map(name => `[${name}: (详细信息见对应绿灯条目)]`)
+          .join('\n');
 
       const entryData = {
-          content: newContent,
-          type: 'constant',
-          position: 'before_character_definition',
-          enabled: true,
-          order: 9999,
-          prevent_recursion: true, // 防止此条目激活其他条目
+        content: newContent,
+        type: 'constant',
+        position: 'before_character_definition',
+        enabled: true,
+        order: 9999,
+        prevent_recursion: true, // 防止此条目激活其他条目
       };
 
       if (existingRosterEntry) {
-        if (existingRosterEntry.content !== newContent || existingRosterEntry.type !== 'constant' || existingRosterEntry.prevent_recursion !== true) {
-          await TavernHelper_API_ACU.setLorebookEntries(primaryLorebookName, [{ uid: existingRosterEntry.uid, ...entryData }]);
+        if (
+          existingRosterEntry.content !== newContent ||
+          existingRosterEntry.type !== 'constant' ||
+          existingRosterEntry.prevent_recursion !== true
+        ) {
+          await TavernHelper_API_ACU.setLorebookEntries(primaryLorebookName, [
+            { uid: existingRosterEntry.uid, ...entryData },
+          ]);
         }
       } else {
-        await TavernHelper_API_ACU.createLorebookEntries(primaryLorebookName, [{ comment: rosterEntryComment, keys: [`角色卡更新`, chatIdentifierForEntry, `人物总揽`], ...entryData }]);
+        await TavernHelper_API_ACU.createLorebookEntries(primaryLorebookName, [
+          { comment: rosterEntryComment, keys: [`角色卡更新`, chatIdentifierForEntry, `人物总揽`], ...entryData },
+        ]);
       }
       return true;
     } catch (error) {
@@ -1365,7 +1535,7 @@
 
   async function saveDescriptionToLorebook_ACU(characterName, newDescription, startFloor, endFloor) {
     if (!characterName?.trim()) return false;
-    
+
     const chatIdentifier = currentChatFileIdentifier_ACU || '未知聊天';
     const safeCharName = characterName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, '_');
     const newComment = `角色卡更新-${chatIdentifier}-${safeCharName}-${startFloor + 1}-${endFloor + 1}`;
@@ -1377,14 +1547,32 @@
         showToastr_ACU('error', '未设置主世界书。');
         return false;
       }
-      
-      const entries = await TavernHelper_API_ACU.getLorebookEntries(book) || [];
+
+      const entries = (await TavernHelper_API_ACU.getLorebookEntries(book)) || [];
       let existing = entries.find(e => e.comment?.startsWith(oldPrefix));
 
       if (existing) {
-        await TavernHelper_API_ACU.setLorebookEntries(book, [{ uid: existing.uid, comment: newComment, content: newDescription, enabled: true, type: 'selective', position: 'after_character_definition' }]);
+        await TavernHelper_API_ACU.setLorebookEntries(book, [
+          {
+            uid: existing.uid,
+            comment: newComment,
+            content: newDescription,
+            enabled: true,
+            type: 'selective',
+            position: 'after_character_definition',
+          },
+        ]);
       } else {
-        await TavernHelper_API_ACU.createLorebookEntries(book, [{ comment: newComment, content: newDescription, keys: [`角色卡更新`, chatIdentifier, safeCharName], enabled: true, type: 'selective', position: 'after_character_definition' }]);
+        await TavernHelper_API_ACU.createLorebookEntries(book, [
+          {
+            comment: newComment,
+            content: newDescription,
+            keys: [`角色卡更新`, chatIdentifier, safeCharName],
+            enabled: true,
+            type: 'selective',
+            position: 'after_character_definition',
+          },
+        ]);
       }
       showToastr_ACU('success', `角色 ${safeCharName} 的描述已保存到世界书。`);
       return true;
@@ -1396,40 +1584,56 @@
   }
 
   async function proceedWithCardUpdate_ACU(messagesToUse, lorebookContentToUse) {
-    const statusUpdater = (text) => {
-        if ($extensionSettingsPanel) {
-            $extensionSettingsPanel.find('#autoCardUpdater-status-message').text(text);
-        }
+    const statusUpdater = text => {
+      if ($extensionSettingsPanel) {
+        $extensionSettingsPanel.find('#autoCardUpdater-status-message').text(text);
+      }
     };
     statusUpdater('正在生成角色卡描述...');
 
     try {
       let aiResponse = await callCustomOpenAI_ACU(null, prepareAIInput_ACU(messagesToUse, ''));
-      aiResponse = aiResponse.replace(/^```[a-z]*\n?/, '').replace(/```$/, '').trim();
-      
+
       if (!aiResponse) throw new Error('AI未能生成有效描述。');
 
-      const greenLightPrefix = '注意：以下是该角色当前最新的角色卡信息。在后续的剧情生成中，请严格依据此角色卡中描述的最新人物状态进行创作。\n\n';
       const endFloor_0idx = allChatMessages_ACU.length - 1;
       const startFloor_0idx = Math.max(0, allChatMessages_ACU.length - messagesToUse.length);
 
-      const characterBlocks = aiResponse.split(/(?=# <char_)/g).filter(block => block.trim().startsWith('# <char_'));
+      // Split the AI response into individual character card blocks.
+      const characterBlocks = aiResponse.split('[START_CHAR_CARD]').filter(block => block.trim());
       if (characterBlocks.length === 0) throw new Error('AI未能生成任何角色描述块。');
 
       let allSucceeded = true;
       let processedNames = [];
 
       for (const block of characterBlocks) {
-        const nameMatch = block.match(/姓名:\s*["']?([^"'\n]+)/);
-        const charName = nameMatch ? nameMatch[1].trim() : 'UnknownCharacter';
-        const success = await saveDescriptionToLorebook_ACU(charName, greenLightPrefix + block.trim(), startFloor_0idx, endFloor_0idx);
-        if (success && charName !== 'UnknownCharacter') processedNames.push(charName);
-        if (!success) allSucceeded = false;
-      }
-      
-      await updateCharacterRosterLorebookEntry_ACU([...new Set(processedNames)]);
+        const fullBlock = '[START_CHAR_CARD]\n' + block.trim();
 
-      statusUpdater(`已为 ${processedNames.length} 个角色更新描述！`);
+        // Extract character name from the new format
+        const nameMatch = block.match(/\[name\]:(.*)/);
+        const charName = nameMatch ? nameMatch[1].trim() : 'UnknownCharacter';
+
+        if (charName === 'UnknownCharacter') {
+          logError_ACU('Could not find character name in block:', block);
+          continue;
+        }
+
+        // The content to save is the full block in the new custom format
+        const success = await saveDescriptionToLorebook_ACU(charName, fullBlock, startFloor_0idx, endFloor_0idx);
+        if (success) {
+          processedNames.push(charName);
+        } else {
+          allSucceeded = false;
+        }
+      }
+
+      if (processedNames.length > 0) {
+        await updateCharacterRosterLorebookEntry_ACU([...new Set(processedNames)]);
+        statusUpdater(`已为 ${processedNames.length} 个角色更新描述！`);
+      } else {
+        throw new Error('AI生成了内容，但未能成功提取任何有效的角色卡。');
+      }
+
       updateCardUpdateStatusDisplay_ACU();
       return allSucceeded;
     } catch (error) {
@@ -1439,7 +1643,7 @@
       return false;
     }
   }
-  
+
   async function handleManualUpdateCard_ACU() {
     if (isAutoUpdatingCard_ACU) {
       showToastr_ACU('info', '已有更新任务在进行中。');
@@ -1453,7 +1657,7 @@
     isAutoUpdatingCard_ACU = true;
     const $button = $extensionSettingsPanel.find('#autoCardUpdater-manual-update-card');
     $button.prop('disabled', true).text('更新中...');
-    
+
     await loadAllChatMessages_ACU();
     const messagesToProcess = allChatMessages_ACU.slice(-autoUpdateThreshold_ACU);
     await proceedWithCardUpdate_ACU(messagesToProcess, '');
@@ -1467,15 +1671,17 @@
       const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
       if (!primaryLorebookName) return;
 
-      const entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName) || [];
+      const entries = (await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName)) || [];
       const entryPrefixGeneral = `角色卡更新-`;
       const currentChatIdForEntry = currentChatFileIdentifier_ACU || '未知聊天';
-      const entryPrefixCurrentActiveChat = currentChatIdForEntry !== '未知聊天' ? `${entryPrefixGeneral}${currentChatIdForEntry}-` : null;
+      const entryPrefixCurrentActiveChat =
+        currentChatIdForEntry !== '未知聊天' ? `${entryPrefixGeneral}${currentChatIdForEntry}-` : null;
 
       const entriesToUpdate = [];
       for (const entry of entries) {
         if (entry.comment && entry.comment.startsWith(entryPrefixGeneral)) {
-          const shouldBeEnabled = entryPrefixCurrentActiveChat && entry.comment.startsWith(entryPrefixCurrentActiveChat);
+          const shouldBeEnabled =
+            entryPrefixCurrentActiveChat && entry.comment.startsWith(entryPrefixCurrentActiveChat);
           if (entry.enabled !== shouldBeEnabled) {
             entriesToUpdate.push({ uid: entry.uid, enabled: shouldBeEnabled });
           }
@@ -1489,16 +1695,15 @@
       logError_ACU('Error managing lorebook entries:', error);
     }
   }
-    
+
   // 确保所有API都准备就绪后再执行初始化
   function runWhenReady() {
     if (window.SillyTavern && window.TavernHelper && window.jQuery && window.toastr) {
-        initializeExtension();
+      initializeExtension();
     } else {
-        setTimeout(runWhenReady, 100);
+      setTimeout(runWhenReady, 100);
     }
   }
 
   runWhenReady();
-
 })();
