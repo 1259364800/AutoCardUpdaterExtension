@@ -7,23 +7,6 @@
         <div class="inline-drawer-content">
             <div class="auto-card-updater-settings">
                 <div class="description_text">一个自动更新角色卡描述的工具。 插件作者：默默 & Cline</div>
-
-                <!-- 主题设置 -->
-                <div class="inline-drawer">
-                    <div class="inline-drawer-toggle inline-drawer-header sub-header">
-                        <b><i class="fa-solid fa-palette"></i> 主题设置</b>
-                        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
-                    </div>
-                    <div class="inline-drawer-content">
-                        <div id="autoCardUpdater-theme-colors-container" class="theme-section">
-                            <div class="theme-button-wrapper button-group"></div>
-                            <div class="custom-color-picker-container">
-                                <label for="autoCardUpdater-custom-color-input">自定义主题色:</label>
-                                <input type="color" id="autoCardUpdater-custom-color-input">
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 
                 <!-- API设置 -->
                 <div class="inline-drawer">
@@ -94,6 +77,24 @@
                     <p id="autoCardUpdater-card-update-status-display" class="description_text">正在获取状态...</p>
                     <p id="autoCardUpdater-total-messages-display" class="description_text">上下文总层数: N/A</p>
                     <p id="autoCardUpdater-status-message" class="description_text">准备就绪</p>
+                </div>
+
+                <!-- 角色卡查看器设置 -->
+                <div class="inline-drawer">
+                    <div class="inline-drawer-toggle inline-drawer-header sub-header">
+                        <b><i class="fa-solid fa-address-card"></i> 角色卡查看器</b>
+                        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+                    </div>
+                    <div class="inline-drawer-content">
+                        <div class="setting_item">
+                            <span>启用角色卡查看器浮动按钮</span>
+                            <div class="SillyTavernSwitch">
+                                <input id="char-card-viewer-enabled-checkbox" type="checkbox" checked>
+                                <div class="SillyTavernSlider"></div>
+                            </div>
+                        </div>
+                         <p class="description_text">在主界面显示一个可拖动的按钮，点击可查看当前角色的核心数据。</p>
+                    </div>
                 </div>
 
                 <!-- 关于与更新 -->

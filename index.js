@@ -9,8 +9,8 @@
 
   // --- Updater Module ---
   const Updater_ACU = {
-      gitRepoOwner: "YOUR_GITHUB_USERNAME", // <-- 在这里填写您的 GitHub 用户名
-      gitRepoName: "SillyTavern-AutoCardUpdaterExtension", // <-- 在这里填写您的 GitHub 仓库名
+      gitRepoOwner: "1830488003", // <-- 在这里填写您的 GitHub 用户名
+      gitRepoName: "AutoCardUpdaterExtension", // <-- 在这里填写您的 GitHub 仓库名
       currentVersion: "0.0.0",
       latestVersion: "0.0.0",
       changelogContent: "",
@@ -120,9 +120,13 @@
   const STORAGE_KEY_API_CONFIG_ACU = `${SCRIPT_ID_PREFIX_ACU}_apiConfig_v1`;
   const STORAGE_KEY_BREAK_ARMOR_PROMPT_ACU = `${SCRIPT_ID_PREFIX_ACU}_breakArmorPrompt_v1`;
   const STORAGE_KEY_CHAR_CARD_PROMPT_ACU = `${SCRIPT_ID_PREFIX_ACU}_charCardPrompt_v1`;
-  const STORAGE_KEY_THEME_SETTINGS_ACU = `${SCRIPT_ID_PREFIX_ACU}_themeSettings_v1`;
   const STORAGE_KEY_AUTO_UPDATE_THRESHOLD_ACU = `${SCRIPT_ID_PREFIX_ACU}_autoUpdateThreshold_v1`;
   const STORAGE_KEY_AUTO_UPDATE_ENABLED_ACU = `${SCRIPT_ID_PREFIX_ACU}_autoUpdateEnabled_v1`;
+  const STORAGE_KEY_VIEWER_ENABLED_ACU = `${SCRIPT_ID_PREFIX_ACU}_viewerEnabled_v1`;
+  const STORAGE_KEY_VIEWER_BUTTON_POS_ACU = `${SCRIPT_ID_PREFIX_ACU}_viewerButtonPos_v1`;
+
+  const CHAR_CARD_VIEWER_BUTTON_ID = `${SCRIPT_ID_PREFIX_ACU}-viewer-button`;
+  const CHAR_CARD_VIEWER_POPUP_ID = `${SCRIPT_ID_PREFIX_ACU}-viewer-popup`;
 
   const NEW_MESSAGE_DEBOUNCE_DELAY_ACU = 4000;
 
@@ -157,30 +161,6 @@
 
   const DEFAULT_AUTO_UPDATE_THRESHOLD_ACU = 20;
 
-  const THEME_PALETTE_ACU = [
-    { name: '薄荷蓝', accent: '#78C1C3' },
-    { name: '珊瑚粉', accent: '#FF7F50' },
-    { name: '宁静蓝', accent: '#4682B4' },
-    { name: '淡雅紫', accent: '#9370DB' },
-    { name: '活力橙', accent: '#FF8C00' },
-    { name: '清新绿', accent: '#3CB371' },
-    { name: '深海蓝', accent: '#483D8B' },
-    { name: '金色', accent: '#FFD700' },
-    { name: '天空蓝', accent: '#87CEEB' },
-    { name: '玫瑰红', accent: '#C71585' },
-    { name: '默认深色', accent: '#61afef' },
-    { name: '灰石色', accent: '#808080' },
-    { name: '橄榄绿', accent: '#808000' },
-    { name: '海军蓝', accent: '#000080' },
-    { name: '暗紫色', accent: '#800080' },
-    { name: '青灰蓝', accent: '#708090' },
-    { name: '深赭石', accent: '#8B4513' },
-    { name: '暗森林绿', accent: '#556B2F' },
-    { name: '钢青色', accent: '#4682B4' },
-    { name: '暗岩灰', accent: '#696969' },
-    { name: '中海蓝', accent: '#6A5ACD' },
-  ];
-
   // --- 核心API与全局变量 ---
   let SillyTavern_API_ACU, TavernHelper_API_ACU, jQuery_API_ACU, toastr_API_ACU;
   let allChatMessages_ACU = [];
@@ -196,13 +176,11 @@
   let currentCharCardPrompt_ACU = DEFAULT_CHAR_CARD_PROMPT_ACU;
   let autoUpdateThreshold_ACU = DEFAULT_AUTO_UPDATE_THRESHOLD_ACU;
   let autoUpdateEnabled_ACU = true;
+  let viewerEnabled_ACU = true;
   let isAutoUpdatingCard_ACU = false;
   let newMessageDebounceTimer_ACU = null;
   let pollingIntervalId_ACU = null;
   let lastMessageCount_ACU = -1;
-  let currentThemeSettings_ACU = {
-    accentColor: THEME_PALETTE_ACU[10].accent,
-  };
 
   // --- 日志与通知 ---
   function logDebug_ACU(...args) {
@@ -222,6 +200,7 @@
   // --- 辅助函数 ---
   function escapeHtml_ACU(unsafe) {
     if (typeof unsafe !== 'string') return '';
+    // Correctly escape HTML entities
     return unsafe.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"').replace(/'/g, '&#039;');
   }
 
@@ -235,63 +214,546 @@
     return cleanedName.replace(/\.jsonl$/, '').replace(/\.json$/, '');
   }
 
-  // --- 主题颜色相关函数 (保留) ---
-  function lightenDarkenColor_ACU(col, amt) {
-    let usePound = false;
-    if (col.startsWith('#')) {
-      col = col.slice(1);
-      usePound = true;
-    }
-    let num = parseInt(col, 16);
-    let r = (num >> 16) + amt;
-    if (r > 255) r = 255; else if (r < 0) r = 0;
-    let b = ((num >> 8) & 0x00ff) + amt;
-    if (b > 255) b = 255; else if (b < 0) b = 0;
-    let g = (num & 0x0000ff) + amt;
-    if (g > 255) g = 255; else if (g < 0) g = 0;
-    return (usePound ? '#' : '') + ('000000' + ((r << 16) | (b << 8) | g).toString(16)).slice(-6);
-  }
-  function getContrastYIQ_ACU(hexcolor) {
-    if (hexcolor.startsWith('#')) hexcolor = hexcolor.slice(1);
-    var r = parseInt(hexcolor.substr(0, 2), 16);
-    var g = parseInt(hexcolor.substr(2, 2), 16);
-    var b = parseInt(hexcolor.substr(4, 2), 16);
-    var yiq = (r * 299 + g * 587 + b * 114) / 1000;
-    return yiq >= 128 ? '#000000' : '#FFFFFF';
-  }
-
-  function applyTheme_ACU(accentColor) {
-      if (!$extensionSettingsPanel) return;
-
-      currentThemeSettings_ACU.accentColor = accentColor;
-      localStorage.setItem(STORAGE_KEY_THEME_SETTINGS_ACU, JSON.stringify(currentThemeSettings_ACU));
-
-      // 动态创建<style>标签来应用主题，这样更灵活
-      const styleId = `${SCRIPT_ID_PREFIX_ACU}-dynamic-theme-style`;
-      jQuery_API_ACU(`#${styleId}`).remove(); // 移除旧样式
-
-      const popupBg = '#FFFFFF'; // 或者从SillyTavern变量获取
-      const textColor = '#333333'; // 或者从SillyTavern变量获取
-      const contrastColor = getContrastYIQ_ACU(accentColor);
-
-      const css = `
-          :root {
-              --${SCRIPT_ID_PREFIX_ACU}-accent: ${accentColor};
-              --${SCRIPT_ID_PREFIX_ACU}-contrast: ${contrastColor};
-          }
-          .auto-card-updater-settings .settings-section-toggle {
-              background-color: var(--${SCRIPT_ID_PREFIX_ACU}-accent) !important;
-              color: var(--${SCRIPT_ID_PREFIX_ACU}-contrast) !important;
-          }
-      `;
-
-      jQuery_API_ACU('<style>', { id: styleId, type: 'text/css' }).html(css).appendTo('head');
-      logDebug_ACU(`Applied theme. Accent: ${accentColor}`);
-  }
-
   // --- 配置管理函数 (加载/保存/重置) ---
   // ... (此处将包含所有 loadSettings, save*, reset* 函数)
   // 它们现在将通过 $extensionSettingsPanel.find(...) 来获取UI元素
+
+  // --- Char Card Viewer UI Functions (v0.2.0 - Multi-character Editor) ---
+
+  // A more robust, custom YAML parser for the specific format.
+  function customYamlParser_ACU(yamlText) {
+    const lines = yamlText.split('\n');
+    const result = {};
+    const stack = [{ obj: result, indent: -1 }];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '' || line.trim().startsWith('#')) continue;
+
+        const indent = line.search(/\S/);
+        const trimmedLine = line.trim();
+
+        while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+            stack.pop();
+        }
+        const parent = stack[stack.length - 1];
+
+        // Handle list items
+        if (trimmedLine.startsWith('- ')) {
+            if (!Array.isArray(parent.obj)) {
+                // This shouldn't happen if the parent key was properly identified as a list
+                continue;
+            }
+
+            const itemContent = trimmedLine.substring(2).trim();
+            // Check if this list item is the start of an object
+            if (itemContent.includes(':')) {
+                const newObj = {};
+                parent.obj.push(newObj);
+                stack.push({ obj: newObj, indent: indent });
+                // Re-process the current line as a key-value pair for the new object
+                i--; 
+            } else {
+                 parent.obj.push(itemContent.replace(/^["']|["']$/g, ''));
+            }
+            continue;
+        }
+
+        // Handle key-value pairs
+        const separatorIndex = trimmedLine.indexOf(':');
+        if (separatorIndex === -1) continue;
+
+        const key = trimmedLine.substring(0, separatorIndex).trim();
+        let value = trimmedLine.substring(separatorIndex + 1).trim();
+        
+        // Handle multiline strings (simplified: starts with |)
+        if (value === '|') {
+            let multilineContent = [];
+            let nextLineIndex = i + 1;
+            while (nextLineIndex < lines.length && (lines[nextLineIndex].search(/\S/) > indent || lines[nextLineIndex].trim() === '')) {
+                multilineContent.push(lines[nextLineIndex].substring(indent + 2));
+                nextLineIndex++;
+            }
+            value = multilineContent.join('\n');
+            i = nextLineIndex - 1; // Move parser to the end of multiline block
+        } else {
+            value = value.replace(/^["']|["']$/g, ''); // Strip quotes
+        }
+        
+        // Look ahead to see if the next line is a list, making this key a list container
+        const nextLine = (i + 1 < lines.length) ? lines[i + 1].trim() : null;
+        if (value === '' && nextLine && nextLine.startsWith('-')) {
+            const newList = [];
+            parent.obj[key] = newList;
+            stack.push({ obj: newList, indent: indent + 2 }); // Assume standard 2-space list indent
+        } 
+        // If value is empty, it's a new nested object
+        else if (value === '') {
+            const newObj = {};
+            parent.obj[key] = newObj;
+            stack.push({ obj: newObj, indent: indent });
+        }
+        // It's a simple key-value pair
+        else {
+            parent.obj[key] = value;
+        }
+    }
+    return result;
+  }
+
+  // Wrapper function to use the new custom parser, with improved data mapping
+  function parseCharCardYaml_ACU(rawContent) {
+    try {
+        let cleanedString = rawContent
+            .replace('注意：以下是该角色当前最新的角色卡信息。在后续的剧情生成中，请严格依据此角色卡中描述的最新人物状态进行创作。', '')
+            .replace(/^```yaml\s*/, '')
+            .replace(/```$/, '')
+            .trim();
+
+        const data = customYamlParser_ACU(cleanedString);
+
+        const card = {};
+        const get = (path, source = data) => path.split('.').reduce((o, k) => (o || {})[k], source);
+        
+        card.basicInfo = get('外显资料.基本信息');
+        card.appearance = get('外显资料.外貌与举止');
+        card.personality = get('内质资料.性格与内在');
+        card.social = get('外延资料.社交与能力');
+        card.traits = get('核心特质');
+        card.corpus = get('语言样本');
+        card.relationships = get('关键关系');
+
+        // Post-processing to ensure arrays are arrays
+        if(card.personality && card.personality.核心性格标签 && typeof card.personality.核心性格标签 === 'string'){
+            card.personality.核心性格标签 = [card.personality.核心性格标签];
+        }
+        if(card.corpus && card.corpus.典型引语 && typeof card.corpus.典型引语 === 'string'){
+            card.corpus.典型引语 = [card.corpus.典型引语];
+        }
+        if(card.traits && card.traits.length > 0) {
+            card.traits.forEach(trait => {
+                if (trait['行为/言语实例'] && typeof trait['行为/言语实例'] === 'string') {
+                    trait['行为/言语实例'] = [trait['行为/言语实例']];
+                }
+            });
+        }
+        
+        if (!card.basicInfo || !card.basicInfo.姓名) {
+            logError_ACU("Parsed YAML, but could not find a character name.", data);
+            return null;
+        }
+
+        return card;
+    } catch (e) {
+        logError_ACU("Failed to parse character card with custom parser:", e, "Original content:", rawContent);
+        return null;
+    }
+  }
+
+  function createCharCardViewerPopupHtml_ACU(characters) {
+    // Helper function to render a single card/module
+    const renderCard = (title, data, pathPrefix) => {
+        if (!data || Object.keys(data).length === 0) return '';
+        
+        let cardHtml = `<div class="char-card-viewer-card"><h4>${title}</h4>`;
+
+        // A defined order for fields within a card for consistency
+        const fieldOrder = {
+            '外显资料.基本信息': ['姓名', '性别', '种族_民族', '年龄', '背景_身份', '当前状态概述'],
+            '外显资料.外貌与举止': ['整体印象', '关键外貌特征', '衣着风格', '习惯性动作或姿态', '声音特点'],
+            '内质资料.性格与内在': ['核心性格标签', '主要性格特点描述', '核心动机或目标', '价值观或原则', '内心挣扎或弱点'],
+            '外延资料.社交与能力': ['社交风格', '核心能力或特长', '在他人眼中的印象'],
+            '语言样本': ['语言风格简述', '典型引语']
+        };
+
+        const keys = fieldOrder[pathPrefix] || Object.keys(data);
+
+        for (const key of keys) {
+            if (!data.hasOwnProperty(key)) continue;
+
+            const value = data[key];
+            const currentPath = `${pathPrefix}.${key}`;
+            const label = key.replace(/_/g, ' ');
+
+            // Special handling for complex list-of-objects (Traits, Relationships)
+            if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
+                cardHtml += `<label>${escapeHtml_ACU(label)}</label><div class="char-card-complex-list-container">`;
+                value.forEach((item, itemIndex) => {
+                    cardHtml += `<div class="char-card-complex-list-item">`;
+                    // Ensure consistent order within complex items
+                    const itemKeys = Object.keys(item);
+                    if (key === '核心特质') itemKeys.sort((a,b) => a === '特质名称' ? -1 : 1);
+                    if (key === '关键关系') itemKeys.sort((a,b) => a === '关系对象姓名' ? -1 : 1);
+
+                    for (const itemKey of itemKeys) {
+                        const itemValue = item[itemKey];
+                        const itemPath = `${currentPath}.${itemIndex}.${itemKey}`;
+                        const itemLabel = itemKey.replace(/_/g, ' ');
+                        cardHtml += `<label class="small-label">${escapeHtml_ACU(itemLabel)}</label>`;
+                        
+                        // Handle potential array inside complex object (e.g., 行为/言语实例)
+                        if (Array.isArray(itemValue)) {
+                            cardHtml += `<textarea class="char-card-editor-field" data-path="${itemPath}" data-is-array="true" rows="${Math.max(2, itemValue.length)}">${escapeHtml_ACU(itemValue.join('\n'))}</textarea>`;
+                        } else {
+                             cardHtml += `<textarea class="char-card-editor-field" data-path="${itemPath}" rows="3">${escapeHtml_ACU(itemValue)}</textarea>`;
+                        }
+                    }
+                    cardHtml += `</div>`;
+                });
+                cardHtml += `</div>`;
+            } 
+            // Handle simple list of strings (e.g., tags, corpus quotes)
+            else if (Array.isArray(value)) {
+                cardHtml += `<label>${escapeHtml_ACU(label)}</label>`;
+                cardHtml += `<textarea class="char-card-editor-field" data-path="${currentPath}" data-is-array="true" rows="${Math.max(3, value.length)}">${escapeHtml_ACU(value.join('\n'))}</textarea>`;
+            } 
+            // Handle single value fields
+            else {
+                cardHtml += `<label>${escapeHtml_ACU(label)}</label>`;
+                const useTextarea = (value && value.toString().length > 50) || key.includes('描述') || key.includes('概述');
+                if (useTextarea) {
+                    cardHtml += `<textarea class="char-card-editor-field" data-path="${currentPath}" rows="4">${escapeHtml_ACU(value)}</textarea>`;
+                } else {
+                    cardHtml += `<input type="text" class="char-card-editor-field" data-path="${currentPath}" value="${escapeHtml_ACU(value)}">`;
+                }
+            }
+        }
+        cardHtml += `</div>`;
+        return cardHtml;
+    };
+
+    let html = `<div id="${CHAR_CARD_VIEWER_POPUP_ID}" class="char-card-viewer-popup">`;
+    html += `<div class="char-card-viewer-popup-header">
+                <h3>角色卡编辑器 (v${Updater_ACU.currentVersion})</h3>
+                <div class="char-card-viewer-actions">
+                    <button id="char-card-viewer-refresh" class="menu_button" title="从世界书重新加载所有角色卡"><i class="fa-solid fa-arrows-rotate"></i> 刷新</button>
+                    <button class="char-card-viewer-popup-close-button">&times;</button>
+                </div>
+             </div>`;
+
+    if (!characters || characters.length === 0) {
+        html += `<div class="char-card-viewer-popup-body"><p>在主世界书中，没有找到由本扩展生成的任何角色卡。请先进行一次对话或手动更新以生成角色卡。</p></div></div>`;
+        return html;
+    }
+
+    // Tabs
+    html += `<div class="char-card-viewer-tabs">`;
+    characters.forEach((char, index) => {
+        const charName = char.parsed?.basicInfo?.姓名 || `未知角色 ${index + 1}`;
+        html += `<button class="char-card-viewer-tab-button ${index === 0 ? 'active' : ''}" data-char-uid="${char.uid}">${escapeHtml_ACU(charName)}</button>`;
+    });
+    html += `</div>`;
+
+    // Content Panes
+    html += `<div class="char-card-viewer-popup-body">`;
+    characters.forEach((char, index) => {
+        const charData = char.parsed;
+        const charName = charData?.basicInfo?.姓名 || `角色 ${index + 1}`;
+        html += `<div class="char-card-viewer-content-pane ${index === 0 ? 'active' : ''}" id="char-content-${char.uid}" data-uid="${char.uid}">`;
+        
+        // Render all 6 modules in order
+        html += renderCard('模块一：角色外显 (基本信息)', charData.basicInfo, '外显资料.基本信息');
+        html += renderCard('模块一：角色外显 (外貌与举止)', charData.appearance, '外显资料.外貌与举止');
+        html += renderCard('模块二：角色内质 (性格与内在)', charData.personality, '内质资料.性格与内在');
+        html += renderCard('模块三：角色外延 (社交与能力)', charData.social, '外延资料.社交与能力');
+        html += renderCard('模块四：核心特质', { '核心特质': charData.traits }, '核心特质');
+        html += renderCard('模块五：语言样本', charData.corpus, '语言样本');
+        html += renderCard('模块六：关键关系', { '关键关系': charData.relationships }, '关键关系');
+
+        html += `<button class="char-card-viewer-save-button" data-uid="${char.uid}">保存对 ${escapeHtml_ACU(charName)} 的修改</button>`;
+        html += `</div>`; // end content-pane
+    });
+    html += `</div>`; // end popup-body
+    html += `</div>`; // end popup
+
+    return html;
+  }
+
+  function bindCharCardViewerPopupEvents_ACU(popup$) {
+      // Final, robust, self-contained YAML builder
+      const buildYamlString_ACU = (data) => {
+          // Helper functions for YAML generation
+          const quote = (str) => `"${(str || '').toString().replace(/"/g, '\\"')}"`;
+          const multiline = (text, indent) => {
+              if (!text || text.trim() === '') return '""';
+              return `|\n${(text || '').split('\n').map(l => `${' '.repeat(indent)}${l}`).join('\n')}`;
+          }
+          const list = (items, indent) => {
+              if (!Array.isArray(items) || items.length === 0) return '';
+              return items.filter(Boolean).map(item => `\n${' '.repeat(indent)}- ${quote(item.trim())}`).join('');
+          };
+
+          // A helper to safely get nested properties from the collected data
+          const get = (path) => path.split('.').reduce((o, k) => (o || {})[k], data);
+
+          let yaml = `# <char_${Math.random().toString(36).substring(2, 8)}> # XXXXXX为六位随机编码\n\n`;
+
+          // Module 1: Exophenotype
+          yaml += `# 模块一：角色外显 (Exophenotype)\n`;
+          yaml += `外显资料:\n`;
+          yaml += `  基本信息:\n`;
+          yaml += `    姓名: ${quote(get('外显资料.基本信息.姓名'))}\n`;
+          yaml += `    性别: ${quote(get('外显资料.基本信息.性别'))}\n`;
+          yaml += `    种族_民族: ${quote(get('外显资料.基本信息.种族_民族'))}\n`;
+          yaml += `    年龄: ${quote(get('外显资料.基本信息.年龄'))}\n`;
+          yaml += `    背景_身份: ${quote(get('外显资料.基本信息.背景_身份'))}\n`;
+          yaml += `    当前状态概述: ${multiline(get('外显资料.基本信息.当前状态概述'), 6)}\n`;
+          yaml += `  外貌与举止:\n`;
+          yaml += `    整体印象: ${multiline(get('外显资料.外貌与举止.整体印象'), 6)}\n`;
+          yaml += `    关键外貌特征: ${multiline(get('外显资料.外貌与举止.关键外貌特征'), 6)}\n`;
+          yaml += `    衣着风格: ${multiline(get('外显资料.外貌与举止.衣着风格'), 6)}\n`;
+          yaml += `    习惯性动作或姿态: ${multiline(get('外显资料.外貌与举止.习惯性动作或姿态'), 6)}\n`;
+          yaml += `    声音特点: ${quote(get('外显资料.外貌与举止.声音特点'))}\n\n`;
+
+          // Module 2: Endophenotype
+          yaml += `# 模块二：角色内质 (Endophenotype)\n`;
+          yaml += `内质资料:\n`;
+          yaml += `  性格与内在:\n`;
+          yaml += `    核心性格标签:${list(get('内质资料.性格与内在.核心性格标签'), 6)}\n`;
+          yaml += `    主要性格特点描述: ${multiline(get('内质资料.性格与内在.主要性格特点描述'), 6)}\n`;
+          yaml += `    核心动机或目标: ${multiline(get('内质资料.性格与内在.核心动机或目标'), 6)}\n`;
+          yaml += `    价值观或原则: ${multiline(get('内质资料.性格与内在.价值观或原则'), 6)}\n`;
+          if (get('内质资料.性格与内在.内心挣扎或弱点')) {
+              yaml += `    内心挣扎或弱点: ${multiline(get('内质资料.性格与内在.内心挣扎或弱点'), 6)}\n`;
+          }
+          yaml += `\n`;
+          
+          // Module 3: Social Ectophenotype
+          yaml += `# 模块三：角色外延 (Social Ectophenotype)\n`;
+          yaml += `外延资料:\n`;
+          yaml += `  社交与能力:\n`;
+          yaml += `    社交风格: ${multiline(get('外延资料.社交与能力.社交风格'), 6)}\n`;
+          yaml += `    核心能力或特长: ${multiline(get('外延资料.社交与能力.核心能力或特长'), 6)}\n`;
+          if (get('外延资料.社交与能力.在他人眼中的印象')) {
+              yaml += `    在他人眼中的印象: ${multiline(get('外延资料.社交与能力.在他人眼中的印象'), 6)}\n`;
+          }
+          yaml += `\n`;
+
+          // Module 4: Traits
+          yaml += `# 模块四：角色特质 (Traits)\n`;
+          yaml += `核心特质:`;
+          const traits = get('核心特质.核心特质');
+          if (Array.isArray(traits) && traits.length > 0) {
+              traits.forEach(trait => {
+                  yaml += `\n  - 特质名称: ${quote(trait['特质名称'])}`;
+                  yaml += `\n    核心定义: ${quote(trait['核心定义'])}`;
+                  yaml += `\n    行为/言语实例: ${list(trait['行为/言语实例'], 8)}`;
+              });
+          }
+          yaml += `\n\n`;
+
+          // Module 5: Corpus
+          yaml += `# 模块五：角色语料 (Corpus)\n`;
+          yaml += `# 核心原则是高度还原人物本身的性格，禁止生成任何非人物语言与内心独白的内容。\n`;
+          yaml += `语言样本:\n`;
+          yaml += `  语言风格简述: ${multiline(get('语言样本.语言风格简述'), 4)}\n`;
+          yaml += `  典型引语:${list(get('语言样本.典型引语'), 4)}\n\n`;
+
+          // Module 6: Relationships
+          yaml += `# 模块六：角色关系 (Relationships)\n`;
+          yaml += `关键关系:`;
+          const relationships = get('关键关系.关键关系');
+          if (Array.isArray(relationships) && relationships.length > 0) {
+              relationships.forEach(rel => {
+                  yaml += `\n  - 关系对象姓名: ${quote(rel['关系对象姓名'])}`;
+                  yaml += `\n    关系概述: ${multiline(rel['关系概述'], 6)}`;
+                  if(rel['对主角的影响']) {
+                     yaml += `\n    对主角的影响: ${multiline(rel['对主角的影响'], 6)}`;
+                  }
+              });
+          }
+          yaml += `\n`;
+
+          return yaml;
+      };
+
+      // --- Event Bindings ---
+      popup$.find('.char-card-viewer-popup-close-button').on('click', closeCharCardViewerPopup_ACU);
+      popup$.find('#char-card-viewer-refresh').on('click', () => {
+          showToastr_ACU('info', '正在刷新角色数据...');
+          showCharCardViewerPopup_ACU();
+      });
+
+      popup$.find('.char-card-viewer-tab-button').on('click', function() {
+          const $this = jQuery_API_ACU(this);
+          const targetUid = $this.data('char-uid');
+          popup$.find('.char-card-viewer-tab-button').removeClass('active');
+          $this.addClass('active');
+          popup$.find('.char-card-viewer-content-pane').removeClass('active');
+          popup$.find(`#char-content-${targetUid}`).addClass('active');
+      });
+
+      popup$.find('.char-card-viewer-save-button').on('click', async function() {
+          const $button = jQuery_API_ACU(this);
+          const targetUid = $button.data('uid');
+          $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 保存中...');
+
+          try {
+              const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+              if (!book) throw new Error('未找到主世界书。');
+
+              const $activePane = popup$.find(`#char-content-${targetUid}`);
+              const collectedData = {};
+
+              // Collect all data from the form fields into a nested object
+              $activePane.find('.char-card-editor-field').each(function() {
+                  const $field = jQuery_API_ACU(this);
+                  const path = $field.data('path');
+                  let value = $field.val();
+
+                  if ($field.data('is-array')) {
+                      value = value.split('\n').map(l => l.trim()).filter(Boolean);
+                  }
+
+                  // Utility to set nested property
+                  let current = collectedData;
+                  const keys = path.split('.');
+                  keys.forEach((key, index) => {
+                      if (index === keys.length - 1) {
+                          current[key] = value;
+                      } else {
+                          // Check if the next key is a number (for arrays of objects)
+                          const nextKeyIsNumber = !isNaN(parseInt(keys[index + 1], 10));
+                          if (!current[key]) {
+                            current[key] = nextKeyIsNumber ? [] : {};
+                          }
+                          current = current[key];
+                      }
+                  });
+              });
+              
+              const rebuiltYaml = buildYamlString_ACU(collectedData);
+              const greenLightPrefix = '注意：以下是该角色当前最新的角色卡信息。在后续的剧情生成中，请严格依据此角色卡中描述的最新人物状态进行创作。\n\n';
+              const finalContentToSave = greenLightPrefix + rebuiltYaml;
+              
+              await TavernHelper_API_ACU.setLorebookEntries(book, [{ uid: targetUid, content: finalContentToSave }]);
+              showToastr_ACU('success', '角色卡已成功保存！');
+
+          } catch (error) {
+              logError_ACU('保存角色卡失败:', error);
+              showToastr_ACU('error', `保存失败: ${error.message}`);
+          } finally {
+              $button.prop('disabled', false).text(`保存修改`);
+          }
+      });
+  }
+
+  function closeCharCardViewerPopup_ACU() {
+      jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`).remove();
+  }
+
+  async function showCharCardViewerPopup_ACU() {
+      closeCharCardViewerPopup_ACU();
+      
+      try {
+          const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+          if (!book) {
+              showToastr_ACU('warning', '当前角色未设置主世界书。');
+              jQuery_API_ACU('body').append(createCharCardViewerPopupHtml_ACU([]));
+              bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
+              return;
+          }
+          
+          const allEntries = await TavernHelper_API_ACU.getLorebookEntries(book);
+          // 修正：不再按当前聊天过滤，而是查找所有由本扩展生成的角色卡
+          const generalPrefix = `角色卡更新-`;
+          const characterEntries = allEntries.filter(entry => entry.comment && entry.comment.startsWith(generalPrefix) && !entry.comment.endsWith('-人物总揽'));
+
+          const characters = characterEntries.map(entry => ({
+              uid: entry.uid,
+              comment: entry.comment,
+              content: entry.content,
+              parsed: parseCharCardYaml_ACU(entry.content)
+          })).filter(c => c.parsed); // Filter out any that failed to parse
+          
+          const popupHtml = createCharCardViewerPopupHtml_ACU(characters);
+          jQuery_API_ACU('body').append(popupHtml);
+      		bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
+
+      } catch (error) {
+          logError_ACU('无法显示角色卡查看器:', error);
+          showToastr_ACU('error', '加载角色卡数据时出错。');
+      }
+  }
+
+  function toggleCharCardViewerPopup_ACU() {
+      if (jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`).length > 0) {
+          closeCharCardViewerPopup_ACU();
+      } else {
+          showCharCardViewerPopup_ACU();
+      }
+  }
+
+  function makeButtonDraggable_ACU(button) {
+      let isDragging = false;
+      let wasDragged = false;
+      let offset = { x: 0, y: 0 };
+
+      button.on('mousedown', function(e) {
+          isDragging = true;
+          wasDragged = false;
+          offset.x = e.clientX - button.offset().left;
+          offset.y = e.clientY - button.offset().top;
+          button.css('cursor', 'grabbing');
+          jQuery_API_ACU('body').css('user-select', 'none');
+      });
+
+      jQuery_API_ACU(document).on('mousemove.charCardViewer', function(e) {
+          if (!isDragging) return;
+          wasDragged = true;
+          
+          let newX = e.clientX - offset.x;
+          let newY = e.clientY - offset.y;
+          
+          newX = Math.max(0, Math.min(newX, window.innerWidth - button.outerWidth()));
+          newY = Math.max(0, Math.min(newY, window.innerHeight - button.outerHeight()));
+
+          button.css({ top: newY + 'px', left: newX + 'px', right: '', bottom: '' });
+      });
+
+      jQuery_API_ACU(document).on('mouseup.charCardViewer', function() {
+          if (!isDragging) return;
+          isDragging = false;
+          button.css('cursor', 'grab');
+          jQuery_API_ACU('body').css('user-select', 'auto');
+          localStorage.setItem(STORAGE_KEY_VIEWER_BUTTON_POS_ACU, JSON.stringify({ top: button.css('top'), left: button.css('left') }));
+      });
+      
+      button.on('click', function(e) {
+          if (wasDragged) {
+              e.stopPropagation();
+              return;
+          }
+          toggleCharCardViewerPopup_ACU();
+      });
+  }
+
+  function initializeCharCardViewer_ACU() {
+      if (jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).length > 0) {
+          logDebug_ACU('角色卡查看器按钮已存在。');
+          return;
+      }
+      logDebug_ACU('正在创建角色卡查看器按钮...');
+
+      const buttonHtml = `<div id="${CHAR_CARD_VIEWER_BUTTON_ID}" title="查看角色卡" class="fa-solid fa-address-card"></div>`;
+      jQuery_API_ACU('body').append(buttonHtml);
+      logDebug_ACU('角色卡查看器按钮已附加到body。 元素数量:', jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).length);
+      
+      const $viewerButton = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`);
+      
+      makeButtonDraggable_ACU($viewerButton);
+      
+      const savedPosition = JSON.parse(localStorage.getItem(STORAGE_KEY_VIEWER_BUTTON_POS_ACU) || 'null');
+      if (savedPosition) {
+          $viewerButton.css({ top: savedPosition.top, left: savedPosition.left });
+      } else {
+          $viewerButton.css({ top: '120px', right: '10px', left: 'auto' });
+      }
+
+      $viewerButton.toggle(viewerEnabled_ACU);
+      logDebug_ACU('角色卡查看器按钮可见性切换为:', viewerEnabled_ACU, '. 当前是否可见:', $viewerButton.is(':visible'));
+  }
+
     function loadSettings_ACU() {
     try {
       const savedConfigJson = localStorage.getItem(STORAGE_KEY_API_CONFIG_ACU);
@@ -329,22 +791,19 @@
     }
     
     try {
-      const savedThemeSettingsJson = localStorage.getItem(STORAGE_KEY_THEME_SETTINGS_ACU);
-      if (savedThemeSettingsJson) {
-        const savedSettings = JSON.parse(savedThemeSettingsJson);
-        if (savedSettings && typeof savedSettings.accentColor === 'string')
-          currentThemeSettings_ACU.accentColor = savedSettings.accentColor;
-      }
-    } catch (error) {
-      logError_ACU('加载主题设置失败:', error);
-    }
-
-    try {
       const savedAutoUpdateEnabled = localStorage.getItem(STORAGE_KEY_AUTO_UPDATE_ENABLED_ACU);
       autoUpdateEnabled_ACU = savedAutoUpdateEnabled === null ? true : savedAutoUpdateEnabled === 'true'; 
     } catch (error) {
       logError_ACU('加载角色卡自动更新启用状态失败:', error);
       autoUpdateEnabled_ACU = true; 
+    }
+
+    try {
+      const savedViewerEnabled = localStorage.getItem(STORAGE_KEY_VIEWER_ENABLED_ACU);
+      viewerEnabled_ACU = savedViewerEnabled === null ? true : savedViewerEnabled === 'true';
+    } catch (error) {
+      logError_ACU('加载角色卡查看器启用状态失败:', error);
+      viewerEnabled_ACU = true;
     }
     
     logDebug_ACU('配置已加载');
@@ -369,9 +828,7 @@
       
       $extensionSettingsPanel.find('#autoCardUpdater-auto-update-threshold').val(autoUpdateThreshold_ACU);
       $extensionSettingsPanel.find('#autoCardUpdater-auto-update-enabled-checkbox').prop('checked', autoUpdateEnabled_ACU);
-      
-      $extensionSettingsPanel.find('#autoCardUpdater-custom-color-input').val(currentThemeSettings_ACU.accentColor);
-      applyTheme_ACU(currentThemeSettings_ACU.accentColor);
+      $extensionSettingsPanel.find('#char-card-viewer-enabled-checkbox').prop('checked', viewerEnabled_ACU);
   }
 
   // ... 各种 save/clear/reset 函数
@@ -550,29 +1007,6 @@
         // drawer.find('.inline-drawer-content').first().slideToggle();
     });
 
-    // 主题
-    const $themeWrapper = $extensionSettingsPanel.find('.theme-button-wrapper');
-    THEME_PALETTE_ACU.forEach(theme => {
-        const button = jQuery_API_ACU('<button>')
-            .addClass('menu_button') // 使用标准按钮类
-            .attr('title', theme.name)
-            .css('background-color', theme.accent)
-            .data('theme', theme);
-        $themeWrapper.append(button);
-    });
-
-    $themeWrapper.on('click', 'button', function() {
-        const themeData = jQuery_API_ACU(this).data('theme');
-        if (themeData && themeData.accent) {
-            applyTheme_ACU(themeData.accent);
-            $extensionSettingsPanel.find('#autoCardUpdater-custom-color-input').val(themeData.accent);
-        }
-    });
-
-    $extensionSettingsPanel.on('input', '#autoCardUpdater-custom-color-input', function() {
-        applyTheme_ACU(jQuery_API_ACU(this).val());
-    });
-
     // 按钮事件
     $extensionSettingsPanel.on('click', '#autoCardUpdater-load-models', fetchModelsAndConnect_ACU);
     $extensionSettingsPanel.on('click', '#autoCardUpdater-save-config', saveApiConfig_ACU);
@@ -599,6 +1033,17 @@
             showToastr_ACU('info', `角色卡自动更新已 ${autoUpdateEnabled_ACU ? '启用' : '禁用'}`);
         } catch (error) {
             logError_ACU('保存自动更新开关状态失败:', error);
+        }
+    });
+
+    $extensionSettingsPanel.on('change', '#char-card-viewer-enabled-checkbox', function () {
+        viewerEnabled_ACU = jQuery_API_ACU(this).is(':checked');
+        try {
+            localStorage.setItem(STORAGE_KEY_VIEWER_ENABLED_ACU, viewerEnabled_ACU.toString());
+            jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).toggle(viewerEnabled_ACU);
+            showToastr_ACU('info', `角色卡查看器已 ${viewerEnabled_ACU ? '启用' : '禁用'}`);
+        } catch (error) {
+            logError_ACU('保存角色卡查看器开关状态失败:', error);
         }
     });
   }
@@ -635,6 +1080,7 @@
 
     loadSettings_ACU();
     bindSettingsEvents();
+    initializeCharCardViewer_ACU();
     
     // 初始更新检查
     Updater_ACU.checkForUpdates(false);
