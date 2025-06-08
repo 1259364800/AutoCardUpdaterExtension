@@ -1231,7 +1231,15 @@
       }
     });
 
-    resetScriptStateForNewChat_ACU();
+    // 等待APP_READY事件以确保在正确的时间加载初始聊天数据
+    let appReadyHandled = false;
+    SillyTavern_API_ACU.tavern_events.on(SillyTavern_API_ACU.tavern_events.APP_READY, () => {
+        if (appReadyHandled) return;
+        appReadyHandled = true;
+        logDebug_ACU('APP_READY event fired. Initializing script state for the first time.');
+        resetScriptStateForNewChat_ACU();
+    });
+
 
     // 启动轮询
     clearInterval(pollingIntervalId_ACU);
@@ -1324,20 +1332,21 @@
   async function resetScriptStateForNewChat_ACU() {
     logDebug_ACU('Resetting script state for new chat...');
     allChatMessages_ACU = [];
-    let chatNameFromCommand = null;
-    try {
-      chatNameFromCommand = await TavernHelper_API_ACU.triggerSlash('/getchatname');
-    } catch (error) {
-      logError_ACU('Error calling /getchatname:', error);
+
+    // 优先使用 getContext()，因为它更可靠
+    const context = SillyTavern_API_ACU.getContext();
+    let chatFileName = context?.chat;
+
+    // 如果 getContext() 失败，则尝试使用斜杠命令作为备用方案
+    if (!chatFileName) {
+        try {
+            chatFileName = await TavernHelper_API_ACU.triggerSlash('/getchatname');
+        } catch (error) {
+            logError_ACU('Error calling /getchatname slash command:', error);
+        }
     }
 
-    if (chatNameFromCommand && typeof chatNameFromCommand === 'string' && chatNameFromCommand.trim()) {
-      currentChatFileIdentifier_ACU = cleanChatName_ACU(chatNameFromCommand.trim());
-    } else {
-      const contextFallback = SillyTavern_API_ACU.getContext();
-      currentChatFileIdentifier_ACU =
-        contextFallback && contextFallback.chat ? cleanChatName_ACU(contextFallback.chat) : 'unknown_chat_fallback';
-    }
+    currentChatFileIdentifier_ACU = chatFileName ? cleanChatName_ACU(chatFileName) : 'unknown_chat';
 
     lastMessageCount_ACU = -1;
     logDebug_ACU(`currentChatFileIdentifier set to: "${currentChatFileIdentifier_ACU}"`);
