@@ -1,0 +1,90 @@
+/* 
+  AutoCardUpdaterExtension - style.css
+  样式已大幅简化，以尽可能复用SillyTavern的内置样式。
+*/
+
+.auto-card-updater-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 统一描述文本样式 */
+.auto-card-updater-settings .description_text {
+    color: var(--text-color-secondary);
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+
+/* 子折叠面板的头部 */
+.auto-card-updater-settings .sub-header {
+    background-color: var(--background-color-darker);
+    padding: 8px 12px;
+    font-size: 0.9em;
+}
+
+/* 主题颜色按钮 */
+.auto-card-updater-settings .theme-section {
+    padding: 10px;
+}
+.auto-card-updater-settings .theme-button-wrapper {
+    justify-content: flex-start;
+    margin-bottom: 15px;
+    gap: 5px;
+}
+.auto-card-updater-settings .theme-button-wrapper .menu_button {
+    min-width: 24px !important;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+}
+.auto-card-updater-settings .custom-color-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+
+/* 通用按钮组 */
+.auto-card-updater-settings .button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end; /* 按钮靠右对齐 */
+    margin-top: 10px;
+}
+.auto-card-updater-settings .button-group .wide_button {
+    flex-grow: 1;
+    justify-content: center;
+}
+
+
+/* 文本域和标签 */
+.auto-card-updater-settings label {
+    margin-top: 10px;
+    margin-bottom: 5px;
+    font-weight: bold;
+    display: block;
+}
+
+.auto-card-updater-settings hr {
+    border-color: var(--border-color);
+    margin: 20px 0;
+}
+
+/* 设置项通用样式 */
+.auto-card-updater-settings .block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background-color: var(--background-color-darker);
+}
+.auto-card-updater-settings .setting_item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
