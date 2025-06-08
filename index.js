@@ -1262,7 +1262,7 @@
         return;
       }
       const messagesFromApi = await TavernHelper_API_ACU.getChatMessages(`0-${lastMessageId}`, {
-        include_swipes: false,
+        include_swipes: true,
       });
       allChatMessages_ACU = messagesFromApi ? messagesFromApi.map((msg, idx) => ({ ...msg, id: idx })) : [];
       logDebug_ACU(`Loaded ${allChatMessages_ACU.length} messages for: ${currentChatFileIdentifier_ACU}.`);
@@ -1435,7 +1435,14 @@
     let chatHistoryText = '最近的聊天记录摘要:\n';
     if (messages && messages.length > 0) {
       chatHistoryText += messages
-        .map(msg => `${msg.is_user ? SillyTavern_API_ACU?.name1 || '用户' : msg.name || '角色'}: ${msg.message}`)
+        .map(msg => {
+          // 修复BUG：同时处理包含swipes和不包含swipes的消息对象
+          // 当 include_swipes: true 时, msg.swipes 存在且为数组, 正确的消息在 msg.swipes[msg.swipe_id]
+          // 否则, msg.message 存在
+          const messageText = msg.swipes && Array.isArray(msg.swipes) ? msg.swipes[msg.swipe_id] : msg.message;
+          const senderName = msg.is_user ? SillyTavern_API_ACU?.name1 || '用户' : msg.name || '角色';
+          return `${senderName}: ${messageText}`;
+        })
         .join('\n\n');
     } else {
       chatHistoryText += '(无聊天记录提供)';
@@ -1465,6 +1472,13 @@
         { role: 'user', content: userPromptContent },
       ],
     });
+
+    // 增强的日志记录功能，确保显示完整请求
+    console.groupCollapsed(`[${SCRIPT_ID_PREFIX_ACU}] API Request Details (Click to expand)`);
+    console.log(`[${SCRIPT_ID_PREFIX_ACU}] Request URL:`, fullApiUrl);
+    console.log(`[${SCRIPT_ID_PREFIX_ACU}] Full Request Body (Formatted JSON):`);
+    console.log(JSON.stringify(JSON.parse(body), null, 2));
+    console.groupEnd();
 
     const response = await fetch(fullApiUrl, { method: 'POST', headers, body });
     if (!response.ok) {
