@@ -50,7 +50,7 @@
       const { extension_types } = SillyTavern_API_ACU.getContext().extensions;
       showToastr_ACU('info', '正在开始更新...');
       try {
-        const response = await fetch('/api/extensions/update', {
+        let response = await fetch('/api/extensions/update', {
           method: 'POST',
           headers: getRequestHeaders(),
           body: JSON.stringify({
