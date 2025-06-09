@@ -50,7 +50,7 @@
       const { extension_types } = SillyTavern_API_ACU.getContext().extensions;
       showToastr_ACU('info', '正在开始更新...');
       try {
-        let response = await fetch('/api/extensions/update', {
+        const response = await fetch('/api/extensions/update', {
           method: 'POST',
           headers: getRequestHeaders(),
           body: JSON.stringify({
@@ -342,26 +342,29 @@
          */
         function parseCustomFormat_ACU(text) {
             const data = {};
+            if (typeof text !== 'string') return data;
 
-            // 辅助函数：根据点记法路径在对象中设置值
+            // 1. 精确提取核心数据块
+            const coreDataMatch = text.match(/\[START_CHAR_CARD\]([\s\S]*?)\[END_CHAR_CARD\]/);
+            if (!coreDataMatch || !coreDataMatch[1]) {
+                return data; // 如果没有找到核心数据块，则返回空对象
+            }
+            const coreData = coreDataMatch[1];
+
+            // 2. 在核心数据块上进行解析
             const setNestedValue = (obj, path, value) => {
                 const keys = path.split('.');
                 let current = obj;
                 for (let i = 0; i < keys.length - 1; i++) {
                     const key = keys[i];
                     const nextKey = keys[i + 1];
-
-                    // 检查下一个键是否是数字，以确定是创建对象还是数组
                     const isNextKeyNumeric = /^\d+$/.test(nextKey);
-
                     if (!current[key]) {
                         current[key] = isNextKeyNumeric ? [] : {};
                     }
                     current = current[key];
                 }
-
                 const finalKey = keys[keys.length - 1];
-                // 如果路径的最后一部分是数字，则将其存入数组
                 if (/^\d+$/.test(finalKey) && Array.isArray(current)) {
                     current[parseInt(finalKey, 10)] = value;
                 } else {
@@ -369,19 +372,15 @@
                 }
             };
 
-            // 过滤空行并逐行解析
-            if (typeof text === 'string') {
-                const lines = text.split('\n').filter(line => line.trim() !== '');
-                lines.forEach(line => {
-                    const match = line.match(/^\[(.*?)]:([\s\S]*)$/);
-                    if (match) {
-                        const path = match[1];
-                        // 保留原始值的格式，包括换行符，仅去除首尾可能存在的空格
-                        const value = match[2].trim(); 
-                        setNestedValue(data, path, value);
-                    }
-                });
-            }
+            const lines = coreData.split('\n').filter(line => line.trim() !== '');
+            lines.forEach(line => {
+                const match = line.match(/^\[(.*?)]:([\s\S]*)$/);
+                if (match) {
+                    const path = match[1];
+                    const value = match[2].trim();
+                    setNestedValue(data, path, value);
+                }
+            });
 
             return data;
         }
@@ -445,82 +444,64 @@
              * @param {string} pathPrefix - 用于data-path属性的路径前缀。
              * @returns {string} - 生成的HTML字符串。
              */
+            const renderField = (label, path, value, isTextarea = false, isArray = false) => {
+                const escapedLabel = escapeHtml_ACU(label);
+                const escapedValue = escapeHtml_ACU(isArray ? value.join('\n') : value || '');
+                const rows = isTextarea ? `rows="${isArray ? Math.max(3, value.length) : 4}"` : '';
+                const arrayAttr = isArray ? 'data-is-array="true"' : '';
+            
+                let fieldHtml = `<label class="small-label">${escapedLabel}</label>`;
+                if (isTextarea) {
+                    fieldHtml += `<textarea class="char-card-editor-field" data-path="${path}" ${rows} ${arrayAttr}>${escapedValue}</textarea>`;
+                } else {
+                    fieldHtml += `<input type="text" class="char-card-editor-field" data-path="${path}" value="${escapedValue}">`;
+                }
+                return fieldHtml;
+            };
+
             const renderCard = (title, data, pathPrefix) => {
                 if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return '';
         
-                let cardHtml = `<div class="char-card-viewer-card"><h4>${title}</h4>`;
+                let cardHtml = `<div class="char-card-viewer-card"><h4>${escapeHtml_ACU(title)}</h4>`;
         
                 for (const [key, value] of Object.entries(data)) {
-                    // 如果pathPrefix为空，则路径就是键名本身（用于顶层键）
                     const currentPath = pathPrefix ? `${pathPrefix}.${key}` : key;
                     const label = getLabel(key);
         
-                    // Case 1: 嵌套对象 (e.g., exophenotype.basic_info)
                     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                         cardHtml += `<div class="char-card-viewer-sub-card"><h5>${label}</h5>`;
-                         for (const [subKey, subValue] of Object.entries(value)) {
+                        cardHtml += `<div class="char-card-viewer-sub-card"><h5>${escapeHtml_ACU(label)}</h5>`;
+                        for (const [subKey, subValue] of Object.entries(value)) {
                             const subPath = `${currentPath}.${subKey}`;
                             const subLabel = getLabel(subKey);
                             const useTextarea = (subValue && String(subValue).length > 50) || ['description', 'summary', 'status_summary', 'motivation', 'values', 'struggle'].includes(subKey);
-                            
-                            // 嵌套对象内部的字段
-                            if (Array.isArray(subValue)) {
-                                 cardHtml += `<label class="small-label">${escapeHtml_ACU(subLabel)}</label>`;
-                                 cardHtml += `<textarea class="char-card-editor-field" data-path="${subPath}" data-is-array="true" rows="${Math.max(3, subValue.length)}">${escapeHtml_ACU(subValue.join('\n'))}</textarea>`;
-                            } else {
-                                 cardHtml += `<label class="small-label">${escapeHtml_ACU(subLabel)}</label>`;
-                                 cardHtml += useTextarea
-                                    ? `<textarea class="char-card-editor-field" data-path="${subPath}" rows="4">${escapeHtml_ACU(subValue)}</textarea>`
-                                    : `<input type="text" class="char-card-editor-field" data-path="${subPath}" value="${escapeHtml_ACU(subValue)}">`;
-                            }
-                         }
-                         cardHtml += `</div>`;
-                    }
-                    // Case 2: 复杂列表（对象数组, e.g., traits, relationships）
+                            cardHtml += renderField(subLabel, subPath, subValue, useTextarea, Array.isArray(subValue));
+                        }
+                        cardHtml += `</div>`;
+                    } 
                     else if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
-                        cardHtml += `<label>${escapeHtml_ACU(label)}</label><div class="char-card-complex-list-container">`;
+                        cardHtml += `<div class="char-card-viewer-sub-card"><h5>${escapeHtml_ACU(label)}</h5><div class="char-card-complex-list-container">`;
                         value.forEach((item, itemIndex) => {
                             cardHtml += `<div class="char-card-complex-list-item">`;
                             for (const [itemKey, itemValue] of Object.entries(item)) {
                                 const itemPath = `${currentPath}.${itemIndex}.${itemKey}`;
                                 const itemLabel = getLabel(itemKey);
-                                
-                                if (Array.isArray(itemValue)) {
-                                    cardHtml += `<label class="small-label">${escapeHtml_ACU(itemLabel)}</label>`;
-                                    cardHtml += `<textarea class="char-card-editor-field" data-path="${itemPath}" data-is-array="true" rows="${Math.max(2, itemValue.length)}">${escapeHtml_ACU(itemValue.join('\n'))}</textarea>`;
-                                } else {
-                                    const useTextarea = (itemValue && String(itemValue).length > 40) || ['definition', 'examples', 'summary', 'description'].includes(itemKey);
-                                    cardHtml += `<label class="small-label">${escapeHtml_ACU(itemLabel)}</label>`;
-                                    cardHtml += useTextarea
-                                        ? `<textarea class="char-card-editor-field" data-path="${itemPath}" rows="${Math.max(2, String(itemValue).split('\n').length)}">${escapeHtml_ACU(itemValue)}</textarea>`
-                                        : `<input type="text" class="char-card-editor-field" data-path="${itemPath}" value="${escapeHtml_ACU(itemValue)}">`;
-                                }
+                                const useTextarea = (itemValue && String(itemValue).length > 40) || ['definition', 'examples', 'summary', 'description'].includes(itemKey);
+                                cardHtml += renderField(itemLabel, itemPath, itemValue, useTextarea, Array.isArray(itemValue));
                             }
                             cardHtml += `</div>`;
                         });
-                        cardHtml += `</div>`;
-                    } 
-                    // Case 3: 简单字段
+                        cardHtml += `</div></div>`;
+                    }
                     else {
-                        // 顶层的name字段不在这里渲染
-                        if (key !== 'name') {
-                             cardHtml += `<label>${escapeHtml_ACU(label)}</label>`;
-                             const useTextarea = (value && String(value).length > 50);
-                             if (Array.isArray(value)) {
-                                 cardHtml += `<textarea class="char-card-editor-field" data-path="${currentPath}" data-is-array="true" rows="${Math.max(3, value.length)}">${escapeHtml_ACU(value.join('\n'))}</textarea>`;
-                             } else {
-                                 cardHtml += useTextarea
-                                     ? `<textarea class="char-card-editor-field" data-path="${currentPath}" rows="4">${escapeHtml_ACU(value)}</textarea>`
-                                     : `<input type="text" class="char-card-editor-field" data-path="${currentPath}" value="${escapeHtml_ACU(value)}">`;
-                             }
-                        }
+                        const useTextarea = (value && String(value).length > 50);
+                        cardHtml += renderField(label, currentPath, value, useTextarea, Array.isArray(value));
                     }
                 }
                 cardHtml += `</div>`;
                 return cardHtml;
             };
     
-            let html = `<div id="${CHAR_CARD_VIEWER_POPUP_ID}" class="char-card-viewer-popup">`;
+            let html = `<div id="${CHAR_CARD_VIEWER_POPUP_ID}" class="char-card-viewer-popup" style="background-color: #1e1e1e !important;">`;
             html += `<div class="char-card-viewer-popup-header">
                         <h3>角色卡编辑器 (v${Updater_ACU.currentVersion})</h3>
                         <div class="char-card-viewer-actions">
@@ -549,15 +530,16 @@
                 const charName = charData.name || `角色 ${index + 1}`;
                 html += `<div class="char-card-viewer-content-pane ${index === 0 ? 'active' : ''}" id="char-content-${char.uid}" data-uid="${char.uid}">`;
                 
-                // --- 最终方案：对每个模块进行独立的、硬编码的渲染调用，并移除“角色基本信息” ---
-                html += renderCard('角色外显 (Exophenotype)', charData.exophenotype, 'exophenotype');
-                html += renderCard('角色内质 (Endophenotype)', charData.endophenotype, 'endophenotype');
-                html += renderCard('角色外延 (Social Ectophenotype)', charData.social_ectophenotype, 'social_ectophenotype');
-                html += renderCard('核心特质 (Traits)', { traits: charData.traits || [] }, '');
-                html += renderCard('语言样本 (Corpus)', charData.corpus, 'corpus');
-                html += renderCard('关键关系 (Relationships)', { relationships: charData.relationships || [] }, '');
+                // --- 最终方案：对每个模块进行独立的、硬编码的渲染调用，并增加安全检查 ---
+                if (charData.name) html += renderCard('角色基本信息', { name: charData.name }, '');
+                if (charData.exophenotype) html += renderCard('角色外显 (Exophenotype)', charData.exophenotype, 'exophenotype');
+                if (charData.endophenotype) html += renderCard('角色内质 (Endophenotype)', charData.endophenotype, 'endophenotype');
+                if (charData.social_ectophenotype) html += renderCard('角色外延 (Social Ectophenotype)', charData.social_ectophenotype, 'social_ectophenotype');
+                if (charData.traits) html += renderCard('核心特质 (Traits)', { traits: charData.traits }, '');
+                if (charData.corpus) html += renderCard('语言样本 (Corpus)', charData.corpus, 'corpus');
+                if (charData.relationships) html += renderCard('关键关系 (Relationships)', { relationships: charData.relationships }, '');
         
-                html += `<button class="char-card-viewer-save-button" data-uid="${char.uid}">保存对 ${escapeHtml_ACU(charName)} 的修改</button>`;
+                html += `<button class="menu_button char-card-viewer-save-button" data-uid="${char.uid}">保存对 ${escapeHtml_ACU(charName)} 的修改</button>`;
                 html += `</div>`;
             });
             html += `</div></div>`;
@@ -725,11 +707,17 @@
           content: entry.content,
           parsed: parseCustomFormat_ACU(entry.content),
         }))
-        .filter(c => c.parsed);
+        .filter(c => c.parsed && Object.keys(c.parsed).length > 0);
 
       const popupHtml = createCharCardViewerPopupHtml_ACU(characters);
       jQuery_API_ACU('body').append(popupHtml);
-      bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
+      const $popup = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`);
+      bindCharCardViewerPopupEvents_ACU($popup);
+      
+      // Final confirmation log
+      const finalBgColor = window.getComputedStyle($popup[0]).backgroundColor;
+      logDebug_ACU(`最终确认：弹窗 #${CHAR_CARD_VIEWER_POPUP_ID} 的计算背景颜色是: ${finalBgColor}`);
+
     } catch (error) {
       logError_ACU('无法显示角色卡查看器:', error);
       showToastr_ACU('error', '加载角色卡数据时出错。');
@@ -791,57 +779,13 @@
     });
   }
 
-  function clampButtonPosition_ACU($button) {
-    if (!$button || $button.length === 0) return;
-
-    const buttonWidth = $button.outerWidth();
-    const buttonHeight = $button.outerHeight();
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
-
-    let currentPos = $button.offset();
-    let newX = currentPos.left;
-    let newY = currentPos.top;
-
-    let needsUpdate = false;
-
-    if (newX + buttonWidth > windowWidth) {
-        newX = windowWidth - buttonWidth;
-        needsUpdate = true;
-    }
-    if (newX < 0) {
-        newX = 0;
-        needsUpdate = true;
-    }
-    if (newY + buttonHeight > windowHeight) {
-        newY = windowHeight - buttonHeight;
-        needsUpdate = true;
-    }
-    if (newY < 0) {
-        newY = 0;
-        needsUpdate = true;
-    }
-
-    if (needsUpdate) {
-        $button.css({ top: newY + 'px', left: newX + 'px' });
-        // Also update the stored position
-        localStorage.setItem(
-            STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
-            JSON.stringify({ top: newY + 'px', left: newX + 'px' })
-        );
-    }
-  }
-
   function initializeCharCardViewer_ACU() {
     if (jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).length > 0) {
-      logDebug_ACU('角色卡查看器按钮已存在。');
       return;
     }
-    logDebug_ACU('正在创建角色卡查看器按钮...');
 
-    const buttonHtml = `<div id="${CHAR_CARD_VIEWER_BUTTON_ID}" title="查看角色卡" class="fa-solid fa-address-card"></div>`;
+    const buttonHtml = `<div id="${CHAR_CARD_VIEWER_BUTTON_ID}" title="查看角色卡" class="fa-solid fa-address-card" style="background-color: #007bff !important;"></div>`;
     jQuery_API_ACU('body').append(buttonHtml);
-    logDebug_ACU('角色卡查看器按钮已附加到body。 元素数量:', jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`).length);
 
     const $viewerButton = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`);
 
@@ -853,18 +797,6 @@
     } else {
       $viewerButton.css({ top: '120px', right: '10px', left: 'auto' });
     }
-
-    // Add window resize listener to keep the button in view
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            clampButtonPosition_ACU($viewerButton);
-        }, 100); 
-    });
-    
-    // Initial check on load
-    clampButtonPosition_ACU($viewerButton);
 
     $viewerButton.toggle(viewerEnabled_ACU);
     logDebug_ACU('角色卡查看器按钮可见性切换为:', viewerEnabled_ACU, '. 当前是否可见:', $viewerButton.is(':visible'));
@@ -1218,28 +1150,19 @@
     Updater_ACU.checkForUpdates(false);
 
     // 注册SillyTavern事件
-    SillyTavern_API_ACU.tavern_events.on(
-      SillyTavern_API_ACU.tavern_events.CHAT_CHANGED,
-      resetScriptStateForNewChat_ACU,
-    );
+    const eventSource = SillyTavern_API_ACU.eventSource;
+    if (!eventSource) {
+        logError_ACU('严重错误: SillyTavern_API_ACU.eventSource 未定义! 无法绑定事件。');
+        return;
+    }
+
+    eventSource.on('CHAT_CHANGED', resetScriptStateForNewChat_ACU);
     const newMessageEvents = ['MESSAGE_SENT', 'MESSAGE_RECEIVED', 'CHAT_UPDATED', 'STREAM_ENDED'];
     newMessageEvents.forEach(evName => {
-      if (SillyTavern_API_ACU.tavern_events[evName]) {
-        SillyTavern_API_ACU.tavern_events.on(SillyTavern_API_ACU.tavern_events[evName], () =>
-          handleNewMessageDebounced_ACU(evName),
-        );
-      }
+        eventSource.on(evName, () => handleNewMessageDebounced_ACU(evName));
     });
 
-    // 等待APP_READY事件以确保在正确的时间加载初始聊天数据
-    let appReadyHandled = false;
-    SillyTavern_API_ACU.tavern_events.on(SillyTavern_API_ACU.tavern_events.APP_READY, () => {
-        if (appReadyHandled) return;
-        appReadyHandled = true;
-        logDebug_ACU('APP_READY event fired. Initializing script state for the first time.');
-        resetScriptStateForNewChat_ACU();
-    });
-
+    resetScriptStateForNewChat_ACU();
 
     // 启动轮询
     clearInterval(pollingIntervalId_ACU);
@@ -1262,7 +1185,7 @@
         return;
       }
       const messagesFromApi = await TavernHelper_API_ACU.getChatMessages(`0-${lastMessageId}`, {
-        include_swipes: true,
+        include_swipes: false,
       });
       allChatMessages_ACU = messagesFromApi ? messagesFromApi.map((msg, idx) => ({ ...msg, id: idx })) : [];
       logDebug_ACU(`Loaded ${allChatMessages_ACU.length} messages for: ${currentChatFileIdentifier_ACU}.`);
@@ -1332,21 +1255,20 @@
   async function resetScriptStateForNewChat_ACU() {
     logDebug_ACU('Resetting script state for new chat...');
     allChatMessages_ACU = [];
-
-    // 优先使用 getContext()，因为它更可靠
-    const context = SillyTavern_API_ACU.getContext();
-    let chatFileName = context?.chat;
-
-    // 如果 getContext() 失败，则尝试使用斜杠命令作为备用方案
-    if (!chatFileName) {
-        try {
-            chatFileName = await TavernHelper_API_ACU.triggerSlash('/getchatname');
-        } catch (error) {
-            logError_ACU('Error calling /getchatname slash command:', error);
-        }
+    let chatNameFromCommand = null;
+    try {
+      chatNameFromCommand = await TavernHelper_API_ACU.triggerSlash('/getchatname');
+    } catch (error) {
+      logError_ACU('Error calling /getchatname:', error);
     }
 
-    currentChatFileIdentifier_ACU = chatFileName ? cleanChatName_ACU(chatFileName) : 'unknown_chat';
+    if (chatNameFromCommand && typeof chatNameFromCommand === 'string' && chatNameFromCommand.trim()) {
+      currentChatFileIdentifier_ACU = cleanChatName_ACU(chatNameFromCommand.trim());
+    } else {
+      const contextFallback = SillyTavern_API_ACU.getContext();
+      currentChatFileIdentifier_ACU =
+        contextFallback && contextFallback.chat ? cleanChatName_ACU(contextFallback.chat) : 'unknown_chat_fallback';
+    }
 
     lastMessageCount_ACU = -1;
     logDebug_ACU(`currentChatFileIdentifier set to: "${currentChatFileIdentifier_ACU}"`);
@@ -1435,14 +1357,7 @@
     let chatHistoryText = '最近的聊天记录摘要:\n';
     if (messages && messages.length > 0) {
       chatHistoryText += messages
-        .map(msg => {
-          // 修复BUG：同时处理包含swipes和不包含swipes的消息对象
-          // 当 include_swipes: true 时, msg.swipes 存在且为数组, 正确的消息在 msg.swipes[msg.swipe_id]
-          // 否则, msg.message 存在
-          const messageText = msg.swipes && Array.isArray(msg.swipes) ? msg.swipes[msg.swipe_id] : msg.message;
-          const senderName = msg.is_user ? SillyTavern_API_ACU?.name1 || '用户' : msg.name || '角色';
-          return `${senderName}: ${messageText}`;
-        })
+        .map(msg => `${msg.is_user ? SillyTavern_API_ACU?.name1 || '用户' : msg.name || '角色'}: ${msg.message}`)
         .join('\n\n');
     } else {
       chatHistoryText += '(无聊天记录提供)';
@@ -1472,13 +1387,6 @@
         { role: 'user', content: userPromptContent },
       ],
     });
-
-    // 增强的日志记录功能，确保显示完整请求
-    console.groupCollapsed(`[${SCRIPT_ID_PREFIX_ACU}] API Request Details (Click to expand)`);
-    console.log(`[${SCRIPT_ID_PREFIX_ACU}] Request URL:`, fullApiUrl);
-    console.log(`[${SCRIPT_ID_PREFIX_ACU}] Full Request Body (Formatted JSON):`);
-    console.log(JSON.stringify(JSON.parse(body), null, 2));
-    console.groupEnd();
 
     const response = await fetch(fullApiUrl, { method: 'POST', headers, body });
     if (!response.ok) {
