@@ -17,13 +17,13 @@
 
 /* --- Viewer Popup --- */
 .char-card-viewer-popup {
-    position: fixed;
-    top: 10px; /* 改为固定的顶部边距，避免垂直居中带来的截断问题 */
-    left: 50%;
-    transform: translateX(-50%); /* 只在水平方向居中 */
-    width: clamp(320px, 95vw, 800px); /* 稍微增加移动端的宽度占比 */
-    max-height: calc(100vh - 20px); /* 确保弹窗总高度不超过视口，并留出边距 */
-    height: auto; /* 高度自适应内容 */
+    position: fixed !important;
+    top: 5vh !important; /* 安全的顶部边距，使用vh单位 */
+    height: 90vh !important; /* 高度占满剩余大部分空间 */
+    left: 50% !important;
+    transform: translateX(-50%) !important; /* 只进行水平居中 */
+    width: 95vw !important; /* 宽度更宽一些以适应移动端 */
+    max-width: 800px !important;
     background-color: var(--main-bg-color);
     color: var(--text-color);
     font-family: var(--font-family);
