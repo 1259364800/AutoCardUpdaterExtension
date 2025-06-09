@@ -800,6 +800,44 @@
 
     $viewerButton.toggle(viewerEnabled_ACU);
     logDebug_ACU('角色卡查看器按钮可见性切换为:', viewerEnabled_ACU, '. 当前是否可见:', $viewerButton.is(':visible'));
+
+    // 添加窗口大小调整事件监听器，以确保按钮始终在可视范围内
+    let resizeTimeout_ACU;
+    jQuery_API_ACU(window).on('resize.charCardViewer', function () {
+        clearTimeout(resizeTimeout_ACU);
+        resizeTimeout_ACU = setTimeout(function () {
+            const button = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`);
+            if (!button.length) return;
+
+            let currentLeft = button.offset().left;
+            let currentTop = button.offset().top;
+
+            // 检查并修正水平位置
+            const maxLeft = jQuery_API_ACU(window).width() - button.outerWidth();
+            if (currentLeft > maxLeft) {
+                currentLeft = maxLeft;
+            }
+            if (currentLeft < 0) {
+                currentLeft = 0;
+            }
+
+            // 检查并修正垂直位置
+            const maxTop = jQuery_API_ACU(window).height() - button.outerHeight();
+            if (currentTop > maxTop) {
+                currentTop = maxTop;
+            }
+            if (currentTop < 0) {
+                currentTop = 0;
+            }
+
+            button.css({ top: currentTop + 'px', left: currentLeft + 'px' });
+            // 更新本地存储中的位置
+            localStorage.setItem(
+                STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
+                JSON.stringify({ top: button.css('top'), left: button.css('left') })
+            );
+        }, 150);
+    });
   }
 
   function loadSettings_ACU() {
