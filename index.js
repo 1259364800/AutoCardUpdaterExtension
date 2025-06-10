@@ -737,41 +737,73 @@
     let wasDragged = false;
     let offset = { x: 0, y: 0 };
 
-    button.on('mousedown', function (e) {
-      isDragging = true;
-      wasDragged = false;
-      offset.x = e.clientX - button.offset().left;
-      offset.y = e.clientY - button.offset().top;
-      button.css('cursor', 'grabbing');
-      jQuery_API_ACU('body').css('user-select', 'none');
-    });
+    const getCoords = (e) => {
+        return e.touches ? e.touches[0] : e;
+    };
 
-    jQuery_API_ACU(document).on('mousemove.charCardViewer', function (e) {
-      if (!isDragging) return;
-      wasDragged = true;
+    const dragStart = function (e) {
+        isDragging = true;
+        wasDragged = false;
+        const coords = getCoords(e);
+        offset.x = coords.clientX - button.offset().left;
+        offset.y = coords.clientY - button.offset().top;
+        button.css('cursor', 'grabbing');
+        jQuery_API_ACU('body').css({
+            'user-select': 'none',
+            '-webkit-user-select': 'none'
+        });
+    };
 
-      let newX = e.clientX - offset.x;
-      let newY = e.clientY - offset.y;
+    const dragMove = function (e) {
+        if (!isDragging) return;
+        wasDragged = true;
+        
+        // 阻止触摸时的页面滚动
+        if (e.touches) {
+            e.preventDefault();
+        }
 
-      newX = Math.max(0, Math.min(newX, window.innerWidth - button.outerWidth()));
-      newY = Math.max(0, Math.min(newY, window.innerHeight - button.outerHeight()));
+        const coords = getCoords(e);
+        let newX = coords.clientX - offset.x;
+        let newY = coords.clientY - offset.y;
 
-      button.css({ top: newY + 'px', left: newX + 'px', right: '', bottom: '' });
-    });
+        newX = Math.max(0, Math.min(newX, window.innerWidth - button.outerWidth()));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - button.outerHeight()));
 
-    jQuery_API_ACU(document).on('mouseup.charCardViewer', function () {
-      if (!isDragging) return;
-      isDragging = false;
-      button.css('cursor', 'grab');
-      jQuery_API_ACU('body').css('user-select', 'auto');
-      localStorage.setItem(
-        STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
-        JSON.stringify({ top: button.css('top'), left: button.css('left') }),
-      );
-    });
+        button.css({ top: newY + 'px', left: newX + 'px', right: '', bottom: '' });
+    };
+
+    const dragEnd = function () {
+        if (!isDragging) return;
+        isDragging = false;
+        button.css('cursor', 'grab');
+        jQuery_API_ACU('body').css({
+            'user-select': 'auto',
+            '-webkit-user-select': 'auto'
+        });
+        // 只有在拖动后才保存位置
+        if (wasDragged) {
+            localStorage.setItem(
+                STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
+                JSON.stringify({ top: button.css('top'), left: button.css('left') }),
+            );
+        }
+    };
+
+    // 绑定鼠标事件
+    button.on('mousedown', dragStart);
+    jQuery_API_ACU(document).on('mousemove.charCardViewer', dragMove);
+    jQuery_API_ACU(document).on('mouseup.charCardViewer', dragEnd);
+
+    // 绑定触摸事件
+    button.on('touchstart', dragStart);
+    jQuery_API_ACU(document).on('touchmove.charCardViewer', dragMove);
+    jQuery_API_ACU(document).on('touchend.charCardViewer', dragEnd);
+
 
     button.on('click', function (e) {
       if (wasDragged) {
+        e.preventDefault();
         e.stopPropagation();
         return;
       }
