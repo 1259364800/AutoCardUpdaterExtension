@@ -170,7 +170,7 @@
 用中文回复用户
 </最高命令>`;
   const DEFAULT_CHAR_CARD_PROMPT_ACU = [
-    '<!-- prompt_version: 4.0.0 -->',
+    '<!-- prompt_version: 4.0.4 -->',
     '您是一个高精度角色信息提取与格式化AI。您的唯一任务是精确遵循指令，阅读聊天记录，并为所有非用户角色生成符合铁律的结构化角色卡。',
     '',
     '<格式化铁律 (绝对强制)>',
@@ -180,6 +180,7 @@
     '4.  **【内容纯净性】**：严禁在您的输出中包含任何说明、解释、评论、引言、道歉、标题或任何不属于 `[START_CHAR_CARD]`...`[END_CHAR_CARD]` 块内 `[key]:value` 格式的文本。您的输出必须是纯粹的数据。',
     '5.  **【无信息字段】**：如果某个字段没有可用的信息，请保持该字段的键存在，并将值留空，例如：`[exophenotype.basic_info.race]:`。',
     '6.  **【禁止YAML】**：绝对禁止使用YAML或任何其他格式。唯一的合法格式是本铁律中定义的格式。',
+    '7.  **【内部纯净性】**：在`[START_CHAR_CARD]`和`[END_CHAR_CARD]`标记之间，除了强制要求的 `[key]:value` 格式数据外，**严禁**包含任何空行、注释或其他任何文本。',
     '</格式化铁律>',
     '',
     '---',
@@ -1708,7 +1709,7 @@
         const fullBlockToSave = '[START_CHAR_CARD]\n' + calibratedBlock;
 
         // Extract character name from the calibrated format, now robust against different colon types and spacing
-        const nameMatch = calibratedBlock.match(/\[{1,2}\s*name\s*\]{1,2}\s*[:：]\s*(.*)/);
+        const nameMatch = calibratedBlock.match(/\[{1,2}\s*name\s*\]{1,2}\s*[:：]\s*(.*)/m);
         const charName = nameMatch ? nameMatch[1].trim() : 'UnknownCharacter';
 
         if (charName === 'UnknownCharacter') {
