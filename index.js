@@ -379,7 +379,7 @@
 
             const lines = coreData.split('\n').filter(line => line.trim() !== '');
             lines.forEach(line => {
-                const match = line.match(/^\[(.*?)]:([\s\S]*)$/);
+                const match = line.match(/^\[{1,2}(.*?)\]{1,2}:([\s\S]*)$/);
                 if (match) {
                     const path = match[1];
                     const value = match[2].trim();
@@ -1694,22 +1694,25 @@
       let processedNames = [];
 
       for (const block of characterBlocks) {
+        // Trim the block first to remove leading/trailing whitespace and newlines from splitting
+        const trimmedBlock = block.trim();
+        if (!trimmedBlock) continue; // Skip empty blocks after trimming
         
         // --- FINAL ULTIMATE FIX: This regex handles potential leading whitespace from the AI ---
-        const calibratedBlock = block.replace(/^\s*(\S+):/gm, '[$1]:');
-        if (calibratedBlock !== block) {
+        const calibratedBlock = trimmedBlock.replace(/^\s*(\S+):/gm, '[$1]:');
+        if (calibratedBlock !== trimmedBlock) {
             logDebug_ACU('AI response block format was auto-calibrated to handle leading whitespace.');
         }
         // --- END: Auto-calibration ---
         
-        const fullBlockToSave = '[START_CHAR_CARD]\n' + calibratedBlock.trim();
+        const fullBlockToSave = '[START_CHAR_CARD]\n' + calibratedBlock;
 
         // Extract character name from the calibrated format, now robust against different colon types and spacing
-        const nameMatch = calibratedBlock.match(/\[\s*name\s*\]\s*[:：]([\s\S]*)/);
+        const nameMatch = calibratedBlock.match(/\[{1,2}\s*name\s*\]{1,2}\s*[:：]\s*(.*)/);
         const charName = nameMatch ? nameMatch[1].trim() : 'UnknownCharacter';
 
         if (charName === 'UnknownCharacter') {
-          logError_ACU('Could not find character name in block:', block); // Log the original, uncalibrated block for diagnosis
+          logError_ACU('Could not find character name in block:', calibratedBlock); // Log the calibrated block for better diagnosis
           continue;
         }
 
