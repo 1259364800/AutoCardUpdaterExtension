@@ -1,6 +1,6 @@
 // SillyTavern Auto Card Updater Extension
 // index.js - Main logic file
-console.log('[AutoCardUpdater] Running version 4.0.8 with pure polling logic.');
+console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non-streaming requests.');
 
 (function () {
   'use strict';
@@ -1116,7 +1116,13 @@ console.log('[AutoCardUpdater] Running version 4.0.8 with pure polling logic.');
       const headers = { 'Content-Type': 'application/json' };
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
-      const response = await fetch(modelsUrl, { method: 'GET', headers: headers });
+      // CORS Fix: Use SillyTavern's built-in proxy to make the request server-side.
+      // This is necessary for services like Google's Gemini API that don't allow direct browser access.
+      const response = await SillyTavern_API_ACU.post('/api/proxy', {
+        endpoint: modelsUrl,
+        type: 'GET',
+        headers,
+      });
       if (!response.ok) throw new Error(`获取模型列表失败: ${response.status}`);
 
       const data = await response.json();
@@ -1528,15 +1534,23 @@ console.log('[AutoCardUpdater] Running version 4.0.8 with pure polling logic.');
 
     const headers = { 'Content-Type': 'application/json' };
     if (customApiConfig_ACU.apiKey) headers['Authorization'] = `Bearer ${customApiConfig_ACU.apiKey}`;
+    // Add stream: false to disable streaming responses
     const body = JSON.stringify({
       model: customApiConfig_ACU.model,
       messages: [
         { role: 'system', content: combinedSystemPrompt },
         { role: 'user', content: userPromptContent },
       ],
+      stream: false, // <-- Disable streaming output
     });
 
-    const response = await fetch(fullApiUrl, { method: 'POST', headers, body });
+    // CORS Fix: Use SillyTavern's built-in proxy for the API call.
+    const response = await SillyTavern_API_ACU.post('/api/proxy', {
+        endpoint: fullApiUrl,
+        type: 'POST',
+        headers,
+        body,
+    });
     if (!response.ok) {
       const errTxt = await response.text();
       throw new Error(`API请求失败: ${response.status} ${errTxt}`);
