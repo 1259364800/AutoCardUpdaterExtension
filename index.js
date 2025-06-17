@@ -1,6 +1,6 @@
 // SillyTavern Auto Card Updater Extension
 // index.js - Main logic file
-console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non-streaming requests.');
+console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as per user feedback.');
 
 (function () {
   'use strict';
@@ -69,7 +69,7 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
     },
 
     async showUpdateConfirmDialog() {
-      const { POPUP_TYPE, callGenericPopup } = SillyTavern_API_ACU.getContext().popup;
+      const { POPUP_TYPE, callGenericPopup } = SillyTavern_API_ACU;
       try {
         this.changelogContent = await this.fetchRawFileFromGitHub('CHANGELOG.md');
       } catch (error) {
@@ -392,7 +392,7 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
             return data;
         }
 
-        function createCharCardViewerPopupHtml_ACU(characters) {
+        function createCharCardViewerPopupHtml_ACU(displayItems) {
             const keyToLabelMap_ACU = {
                 // 顶层
                 'name': '姓名',
@@ -443,14 +443,6 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
             
             const getLabel = (key) => keyToLabelMap_ACU[key] || key.replace(/_/g, ' ');
 
-            /**
-             * @summary 渲染一个UI模块/卡片。
-             * @description 根据提供的数据和路径前缀，递归地生成表单字段。
-             * @param {string} title - 卡片标题。
-             * @param {object} data - 要渲染的数据对象。
-             * @param {string} pathPrefix - 用于data-path属性的路径前缀。
-             * @returns {string} - 生成的HTML字符串。
-             */
             const renderField = (label, path, value, isTextarea = false, isArray = false) => {
                 const escapedLabel = escapeHtml_ACU(label);
                 const escapedValue = escapeHtml_ACU(isArray ? value.join('\n') : value || '');
@@ -512,41 +504,53 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
             html += `<div class="char-card-viewer-popup-header">
                         <h3>角色卡编辑器 (v${Updater_ACU.currentVersion})</h3>
                         <div class="char-card-viewer-actions">
+                            <button id="manual-update-char-card-viewer-btn-ACU" class="menu_button" title="手动更新当前角色的描述"><i class="fa-solid fa-wand-magic-sparkles"></i> 手动更新</button>
                             <button id="char-card-viewer-refresh" class="menu_button" title="从世界书重新加载所有角色卡"><i class="fa-solid fa-arrows-rotate"></i> 刷新</button>
+                            <button id="char-card-viewer-delete-all" class="menu_button" title="删除当前聊天中的所有角色卡和总览"><i class="fa-solid fa-trash-can"></i> 全部删除</button>
                             <button class="char-card-viewer-popup-close-button">&times;</button>
                         </div>
                      </div>`;
     
-            if (!characters || characters.length === 0) {
-                html += `<div class="char-card-viewer-popup-body"><p>在主世界书中，没有找到由本扩展生成的任何角色卡。请先进行一次对话或手动更新以生成角色卡。</p></div></div>`;
+            if (!displayItems || displayItems.length === 0) {
+                html += `<div class="char-card-viewer-popup-body"><p>在主世界书中，没有找到由本扩展生成的任何角色卡或总览。请先进行一次对话或手动更新以生成条目。</p></div></div>`;
                 return html;
             }
     
             html += `<div class="char-card-viewer-tabs">`;
-            characters.forEach((char, index) => {
-                const charName = char.parsed?.name || `未知角色 ${index + 1}`;
-                html += `<button class="char-card-viewer-tab-button ${index === 0 ? 'active' : ''}" data-char-uid="${char.uid}">${escapeHtml_ACU(charName)}</button>`;
+            displayItems.forEach((item, index) => {
+                const itemName = item.isRoster ? '人物总览' : (item.parsed?.name || `未知角色 ${index + 1}`);
+                const wrapperClass = index === 0 ? 'char-card-viewer-tab-button-wrapper active' : 'char-card-viewer-tab-button-wrapper';
+                html += `<div class="${wrapperClass}" data-uid-wrapper="${item.uid}">
+                            <button class="char-card-viewer-tab-button" data-char-uid="${item.uid}">${escapeHtml_ACU(itemName)}</button>
+                            <button class="char-card-viewer-delete-tab-button" data-char-uid="${item.uid}" title="删除此条目"><i class="fa-solid fa-trash-can"></i></button>
+                         </div>`;
             });
             html += `</div>`;
     
             html += `<div class="char-card-viewer-popup-body">`;
-            characters.forEach((char, index) => {
-                const charData = char.parsed;
-                if (!charData) return;
-        
-                const charName = charData.name || `角色 ${index + 1}`;
-                html += `<div class="char-card-viewer-content-pane ${index === 0 ? 'active' : ''}" id="char-content-${char.uid}" data-uid="${char.uid}">`;
-                
-                // --- 最终方案：对每个模块进行独立的、硬编码的渲染调用，并增加安全检查 ---
-                if (charData.name) html += renderCard('角色基本信息', { name: charData.name }, '');
-                if (charData.exophenotype) html += renderCard('角色外显 (Exophenotype)', charData.exophenotype, 'exophenotype');
-                if (charData.endophenotype) html += renderCard('角色内质 (Endophenotype)', charData.endophenotype, 'endophenotype');
-                if (charData.social_ectophenotype) html += renderCard('角色外延 (Social Ectophenotype)', charData.social_ectophenotype, 'social_ectophenotype');
-                if (charData.traits) html += renderCard('核心特质 (Traits)', { traits: charData.traits }, '');
-                if (charData.corpus) html += renderCard('语言样本 (Corpus)', charData.corpus, 'corpus');
-                if (charData.relationships) html += renderCard('关键关系 (Relationships)', { relationships: charData.relationships }, '');
-        
-                html += `<button class="menu_button char-card-viewer-save-button" data-uid="${char.uid}">保存对 ${escapeHtml_ACU(charName)} 的修改</button>`;
+            displayItems.forEach((item, index) => {
+                html += `<div class="char-card-viewer-content-pane ${index === 0 ? 'active' : ''}" id="char-content-${item.uid}" data-uid="${item.uid}">`;
+
+                if (item.isRoster) {
+                    html += `<div class="char-card-viewer-card"><h4>人物总览内容 (只读)</h4>`;
+                    html += `<textarea readonly class="char-card-editor-field" style="height: 400px; background-color: #2a2a2a; color: #ccc;">${escapeHtml_ACU(item.content)}</textarea>`;
+                    html += `</div>`;
+                } else {
+                    const charData = item.parsed;
+                    if (!charData) return;
+            
+                    const charName = charData.name || `角色 ${index + 1}`;
+                    
+                    if (charData.name) html += renderCard('角色基本信息', { name: charData.name }, '');
+                    if (charData.exophenotype) html += renderCard('角色外显 (Exophenotype)', charData.exophenotype, 'exophenotype');
+                    if (charData.endophenotype) html += renderCard('角色内质 (Endophenotype)', charData.endophenotype, 'endophenotype');
+                    if (charData.social_ectophenotype) html += renderCard('角色外延 (Social Ectophenotype)', charData.social_ectophenotype, 'social_ectophenotype');
+                    if (charData.traits) html += renderCard('核心特质 (Traits)', { traits: charData.traits }, '');
+                    if (charData.corpus) html += renderCard('语言样本 (Corpus)', charData.corpus, 'corpus');
+                    if (charData.relationships) html += renderCard('关键关系 (Relationships)', { relationships: charData.relationships }, '');
+            
+                    html += `<button class="menu_button char-card-viewer-save-button" data-uid="${item.uid}">保存对 ${escapeHtml_ACU(charName)} 的修改</button>`;
+                }
                 html += `</div>`;
             });
             html += `</div></div>`;
@@ -554,13 +558,6 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
         }
 
   function bindCharCardViewerPopupEvents_ACU(popup$) {
-    /**
-     * @summary 递归地将JS对象转换为自定义的 [key]:value 格式的纯文本。
-     * @description 此函数遍历一个嵌套的JS对象，并根据其结构构建一个扁平化的键值对列表。
-     * @param {object} obj - 要转换的JS对象。
-     * @param {string} prefix - 当前递归层级的路径前缀。
-     * @returns {string} - 生成的格式化文本的一部分。
-     */
     const buildCustomFormatRecursive_ACU = (obj, prefix = '') => {
         let result = '';
         for (const key in obj) {
@@ -573,19 +570,16 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
                 if (typeof value === 'object' && !Array.isArray(value)) {
                     result += buildCustomFormatRecursive_ACU(value, newPrefix);
                 } else if (Array.isArray(value)) {
-                    // 检查数组是否包含对象
                     if (value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
                         value.forEach((item, index) => {
                             result += buildCustomFormatRecursive_ACU(item, `${newPrefix}.${index}`);
                         });
                     } else {
-                        // 处理简单值数组 (如 tags, quotes)
                         value.forEach((item, index) => {
                              result += `[${newPrefix}.${index}]:${item}\n`;
                         });
                     }
                 } else {
-                    // 处理简单键值对
                     result += `[${newPrefix}]:${value}\n`;
                 }
             }
@@ -593,32 +587,66 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
         return result;
     };
 
-    /**
-     * @summary 包装器函数，用于启动格式生成并添加起始/结束标记。
-     * @param {object} data - 从UI收集的完整数据对象。
-     * @returns {string} - 完整的、准备好保存的格式化文本。
-     */
     const buildCustomFormat_ACU = (data) => {
         let content = buildCustomFormatRecursive_ACU(data);
-        // 移除所有 `[key]:` 格式的空行
         content = content.split('\n').filter(line => line.match(/^\[.*?]:.+/)).join('\n');
         return `[START_CHAR_CARD]\n${content.trim()}\n[END_CHAR_CARD]`;
     };
 
-    // --- 事件绑定 ---
     popup$.find('.char-card-viewer-popup-close-button').on('click', closeCharCardViewerPopup_ACU);
     popup$.find('#char-card-viewer-refresh').on('click', () => {
         showToastr_ACU('info', '正在刷新角色数据...');
         showCharCardViewerPopup_ACU();
     });
 
+    popup$.find('#manual-update-char-card-viewer-btn-ACU').on('click', async function() {
+        const $button = jQuery_API_ACU(this);
+        $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 更新中...');
+        await manualUpdateLogic_ACU();
+        showToastr_ACU('info', '更新完成，正在刷新查看器...');
+        showCharCardViewerPopup_ACU();
+    });
+
     popup$.find('.char-card-viewer-tab-button').on('click', function () {
         const $this = jQuery_API_ACU(this);
         const targetUid = $this.data('char-uid');
-        popup$.find('.char-card-viewer-tab-button').removeClass('active');
-        $this.addClass('active');
+        
+        popup$.find('.char-card-viewer-tab-button-wrapper').removeClass('active');
+        $this.closest('.char-card-viewer-tab-button-wrapper').addClass('active');
+
         popup$.find('.char-card-viewer-content-pane').removeClass('active');
         popup$.find(`#char-content-${targetUid}`).addClass('active');
+    });
+
+    popup$.find('.char-card-viewer-delete-tab-button').on('click', async function(e) {
+        e.stopPropagation();
+        const uidToDelete = jQuery_API_ACU(this).data('char-uid');
+        await deleteLorebookEntries_ACU([uidToDelete]);
+        
+        const $wrapper = jQuery_API_ACU(this).closest('.char-card-viewer-tab-button-wrapper');
+        const $pane = popup$.find(`#char-content-${uidToDelete}`);
+        const wasActive = $wrapper.hasClass('active');
+
+        $wrapper.remove();
+        $pane.remove();
+
+        if (wasActive && popup$.find('.char-card-viewer-tab-button-wrapper').length > 0) {
+            popup$.find('.char-card-viewer-tab-button-wrapper').first().find('.char-card-viewer-tab-button').trigger('click');
+        } else if (popup$.find('.char-card-viewer-tab-button-wrapper').length === 0) {
+            // 如果全部删完了，刷新弹窗显示空状态
+            showCharCardViewerPopup_ACU();
+        }
+    });
+
+    popup$.find('#char-card-viewer-delete-all').on('click', async function() {
+        const allUids = popup$.find('.char-card-viewer-tab-button').map(function() {
+            return jQuery_API_ACU(this).data('char-uid');
+        }).get();
+        
+        if (allUids.length > 0) {
+            await deleteLorebookEntries_ACU(allUids);
+        }
+        showCharCardViewerPopup_ACU();
     });
 
     popup$.find('.char-card-viewer-save-button').on('click', async function () {
@@ -637,13 +665,11 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
             const $activePane = popup$.find(`#char-content-${targetUid}`);
             const collectedData = {};
             
-            // 辅助函数：根据路径字符串在对象中设置嵌套值
             const setNestedValue = (obj, path, value) => {
                 const keys = path.split('.');
                 let current = obj;
                 keys.forEach((key, index) => {
                     if (index === keys.length - 1) {
-                        // 对于空字符串值，将其转换为null以便后续过滤
                         current[key] = value === '' ? null : value;
                     } else {
                         const nextKeyIsNumber = /^\d+$/.test(keys[index + 1]);
@@ -655,7 +681,6 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
                 });
             };
 
-            // 从表单字段收集所有数据到嵌套对象中
             $activePane.find('.char-card-editor-field').each(function () {
                 const $field = jQuery_API_ACU(this);
                 const path = $field.data('path');
@@ -676,7 +701,6 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
             const entryToUpdate = allEntries.find(e => e.uid === targetUid);
             if (!entryToUpdate) throw new Error('无法在世界书中找到原始条目。');
             
-            // 使用更新后的内容和保留的原始评论来保存条目
             await TavernHelper_API_ACU.setLorebookEntries(book, [{ uid: targetUid, content: finalContentToSave, comment: entryToUpdate.comment }]);
             showToastr_ACU('success', '角色卡已成功保存！');
 
@@ -689,6 +713,25 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
     });
   }
 
+  async function deleteLorebookEntries_ACU(uids) {
+    if (!Array.isArray(uids) || uids.length === 0) return;
+
+    try {
+        const context = SillyTavern_API_ACU.getContext();
+        if (!context || !context.characterId) {
+            throw new Error('没有选择角色，无法删除。');
+        }
+        const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+        if (!book) throw new Error('未找到主世界书。');
+
+        await TavernHelper_API_ACU.deleteLorebookEntries(book, uids.map(Number));
+        // Deletion is visually confirmed by the tab disappearing, so no toastr is needed.
+    } catch (error) {
+        logError_ACU('删除世界书条目失败:', error);
+        showToastr_ACU('error', `删除失败: ${error.message}`);
+    }
+  }
+
   function closeCharCardViewerPopup_ACU() {
     jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`).remove();
   }
@@ -697,46 +740,61 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
     closeCharCardViewerPopup_ACU();
 
     try {
-      const context = SillyTavern_API_ACU.getContext();
-      if (!context || !context.characterId) {
-        showToastr_ACU('warning', '没有选择角色，无法打开查看器。');
-        return;
-      }
-      const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
-      if (!book) {
-        showToastr_ACU('warning', '当前角色未设置主世界书。');
-        jQuery_API_ACU('body').append(createCharCardViewerPopupHtml_ACU([]));
-        bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
-        return;
-      }
+        const context = SillyTavern_API_ACU.getContext();
+        if (!context || !context.characterId) {
+            showToastr_ACU('warning', '没有选择角色，无法打开查看器。');
+            return;
+        }
+        const book = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+        if (!book) {
+            showToastr_ACU('warning', '当前角色未设置主世界书。');
+            jQuery_API_ACU('body').append(createCharCardViewerPopupHtml_ACU([]));
+            bindCharCardViewerPopupEvents_ACU(jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`));
+            return;
+        }
 
-      const allEntries = await TavernHelper_API_ACU.getLorebookEntries(book);
-      const generalPrefix = `角色卡更新-`;
-      const characterEntries = allEntries.filter(
-        entry => entry.comment && entry.comment.startsWith(generalPrefix) && !entry.comment.endsWith('-人物总揽'),
-      );
+        const allEntries = await TavernHelper_API_ACU.getLorebookEntries(book);
+        const generalPrefix = `角色卡更新-`;
+        const rosterSuffix = '-人物总揽';
 
-      const characters = characterEntries
-        .map(entry => ({
-          uid: entry.uid,
-          comment: entry.comment,
-          content: entry.content,
-          parsed: parseCustomFormat_ACU(entry.content),
-        }))
-        .filter(c => c.parsed && Object.keys(c.parsed).length > 0);
+        let displayItems = [];
 
-      const popupHtml = createCharCardViewerPopupHtml_ACU(characters);
-      jQuery_API_ACU('body').append(popupHtml);
-      const $popup = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`);
-      bindCharCardViewerPopupEvents_ACU($popup);
-      
-      // Final confirmation log
-      const finalBgColor = window.getComputedStyle($popup[0]).backgroundColor;
-      logDebug_ACU(`最终确认：弹窗 #${CHAR_CARD_VIEWER_POPUP_ID} 的计算背景颜色是: ${finalBgColor}`);
+        // 1. 查找并添加总览条目
+        const rosterEntry = allEntries.find(
+            entry => entry.comment && entry.comment.startsWith(generalPrefix) && entry.comment.endsWith(rosterSuffix)
+        );
+        if (rosterEntry) {
+            displayItems.push({
+                uid: rosterEntry.uid,
+                isRoster: true,
+                comment: rosterEntry.comment,
+                content: rosterEntry.content,
+            });
+        }
+
+        // 2. 查找并添加所有角色条目
+        const characterEntries = allEntries
+            .filter(entry => entry.comment && entry.comment.startsWith(generalPrefix) && !entry.comment.endsWith(rosterSuffix))
+            .map(entry => ({
+                uid: entry.uid,
+                isRoster: false,
+                comment: entry.comment,
+                content: entry.content,
+                parsed: parseCustomFormat_ACU(entry.content),
+            }))
+            .filter(c => c.parsed && Object.keys(c.parsed).length > 0);
+
+        // 3. 合并并排序（总览在前）
+        displayItems = displayItems.concat(characterEntries);
+
+        const popupHtml = createCharCardViewerPopupHtml_ACU(displayItems);
+        jQuery_API_ACU('body').append(popupHtml);
+        const $popup = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_POPUP_ID}`);
+        bindCharCardViewerPopupEvents_ACU($popup);
 
     } catch (error) {
-      logError_ACU('无法显示角色卡查看器:', error);
-      showToastr_ACU('error', '加载角色卡数据时出错。');
+        logError_ACU('无法显示角色卡查看器:', error);
+        showToastr_ACU('error', '加载角色卡数据时出错。');
     }
   }
 
@@ -1101,14 +1159,19 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
       $apiStatus.text('状态:请输入API基础URL').css('color', 'orange');
       return;
     }
-    let baseUrl = apiUrl;
-    if (baseUrl.endsWith('/')) {
-      baseUrl = baseUrl.slice(0, -1);
+
+    // Enhanced URL construction logic
+    let modelsUrl = apiUrl;
+    if (!modelsUrl.endsWith('/')) {
+      modelsUrl += '/';
     }
-    if (baseUrl.endsWith('/v1')) {
-      baseUrl = baseUrl.slice(0, -3);
+    if (modelsUrl.includes('generativelanguage.googleapis.com')) {
+      if (!modelsUrl.endsWith('models')) modelsUrl += 'models';
+    } else if (modelsUrl.endsWith('/v1/')) {
+      modelsUrl += 'models';
+    } else if (!modelsUrl.endsWith('models')) {
+      modelsUrl += 'v1/models';
     }
-    const modelsUrl = `${baseUrl}/v1/models`;
 
     $apiStatus.text('状态: 正在加载模型列表...').css('color', '#61afef');
     showToastr_ACU('info', '正在从 ' + modelsUrl + ' 加载模型列表...');
@@ -1116,18 +1179,20 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
       const headers = { 'Content-Type': 'application/json' };
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
-      // CORS Fix: Use SillyTavern's built-in proxy to make the request server-side.
-      // This is necessary for services like Google's Gemini API that don't allow direct browser access.
-      const response = await SillyTavern_API_ACU.post('/api/proxy', {
-        endpoint: modelsUrl,
-        type: 'GET',
-        headers,
+      // Reverted to direct fetch as per user feedback
+      const response = await fetch(modelsUrl, {
+        method: 'GET',
+        headers: headers,
       });
-      if (!response.ok) throw new Error(`获取模型列表失败: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`获取模型列表失败: ${response.status} - ${errorText}`);
+      }
 
       const data = await response.json();
       $modelSelect.empty();
-      let models = data.data || data; // 支持 OpenAI 和 Ooba/LMStudio 格式
+      let models = data.data || data; // Supports OpenAI and Ooba/LMStudio formats
       if (Array.isArray(models) && models.length > 0) {
         models.forEach(model => {
           const modelId = model.id || model;
@@ -1523,34 +1588,38 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
     if (!customApiConfig_ACU.url || !customApiConfig_ACU.model) throw new Error('API URL/Model未配置。');
     const combinedSystemPrompt = `${currentBreakArmorPrompt_ACU}\n\n${currentCharCardPrompt_ACU}`;
 
-    let baseUrl = customApiConfig_ACU.url;
-    if (baseUrl.endsWith('/')) {
-      baseUrl = baseUrl.slice(0, -1);
+    // Enhanced URL construction logic
+    let fullApiUrl = customApiConfig_ACU.url;
+    if (!fullApiUrl.endsWith('/')) {
+      fullApiUrl += '/';
     }
-    if (baseUrl.endsWith('/v1')) {
-      baseUrl = baseUrl.slice(0, -3);
+    if (fullApiUrl.includes('generativelanguage.googleapis.com')) {
+      if (!fullApiUrl.endsWith('chat/completions')) fullApiUrl += 'chat/completions';
+    } else if (fullApiUrl.endsWith('/v1/')) {
+      fullApiUrl += 'chat/completions';
+    } else if (!fullApiUrl.includes('/chat/completions')) {
+      fullApiUrl += 'v1/chat/completions';
     }
-    const fullApiUrl = `${baseUrl}/v1/chat/completions`;
 
     const headers = { 'Content-Type': 'application/json' };
     if (customApiConfig_ACU.apiKey) headers['Authorization'] = `Bearer ${customApiConfig_ACU.apiKey}`;
-    // Add stream: false to disable streaming responses
+    
     const body = JSON.stringify({
       model: customApiConfig_ACU.model,
       messages: [
         { role: 'system', content: combinedSystemPrompt },
         { role: 'user', content: userPromptContent },
       ],
-      stream: false, // <-- Disable streaming output
+      stream: false, // Disable streaming output
     });
 
-    // CORS Fix: Use SillyTavern's built-in proxy for the API call.
-    const response = await SillyTavern_API_ACU.post('/api/proxy', {
-        endpoint: fullApiUrl,
-        type: 'POST',
-        headers,
-        body,
+    // Reverted to direct fetch as per user feedback
+    const response = await fetch(fullApiUrl, {
+        method: 'POST',
+        headers: headers,
+        body: body,
     });
+
     if (!response.ok) {
       const errTxt = await response.text();
       throw new Error(`API请求失败: ${response.status} ${errTxt}`);
@@ -1758,33 +1827,37 @@ console.log('[AutoCardUpdater] Running version 4.0.9 with CORS proxy fix and non
     }
   }
 
-  async function handleManualUpdateCard_ACU() {
+async function manualUpdateLogic_ACU() {
     if (isAutoUpdatingCard_ACU) {
-      showToastr_ACU('info', '已有更新任务在进行中。');
-      return;
+        showToastr_ACU('info', '已有更新任务在进行中。');
+        return;
     }
     if (!customApiConfig_ACU.url || !customApiConfig_ACU.model) {
-      showToastr_ACU('warning', '请先配置API信息。');
-      return;
+        showToastr_ACU('warning', '请先配置API信息。');
+        return;
     }
 
     isAutoUpdatingCard_ACU = true;
-    const $button = $extensionSettingsPanel.find('#autoCardUpdater-manual-update-card');
-    $button.prop('disabled', true).text('更新中...');
 
     await loadAllChatMessages_ACU();
     const messagesToProcess = allChatMessages_ACU.slice(-autoUpdateThreshold_ACU);
     await proceedWithCardUpdate_ACU(messagesToProcess, '');
 
     isAutoUpdatingCard_ACU = false;
-    $button.prop('disabled', false).text('立即更新角色描述');
-    
+
     // 手动更新后，重置轮询周期以立即响应
     logDebug_ACU('Manual update finished. Resetting polling cycle.');
     clearTimeout(pollingTimer_ACU);
     currentPollingInterval_ACU = MIN_POLLING_INTERVAL_ACU;
     dynamicPollForUpdate_ACU();
-  }
+}
+
+async function handleManualUpdateCard_ACU() {
+    const $button = $extensionSettingsPanel.find('#autoCardUpdater-manual-update-card');
+    $button.prop('disabled', true).text('更新中...');
+    await manualUpdateLogic_ACU();
+    $button.prop('disabled', false).text('立即更新角色描述');
+}
 
   /**
    * @summary 核心修复函数：管理所有与此扩展相关的世界书条目的启用/禁用状态。

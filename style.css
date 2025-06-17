@@ -73,27 +73,80 @@
 .char-card-viewer-tabs {
     display: flex;
     flex-wrap: wrap;
-    padding: 5px 15px 0 15px;
+    gap: 8px; /* 按钮之间的间隙 */
+    padding: 10px 15px;
     background-color: var(--section-bg-color);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
 }
 
+.char-card-viewer-tab-button-wrapper {
+    display: flex;
+    align-items: center;
+    background-color: #ffffff; /* 默认白色背景 */
+    border: 1px solid #d0d0d0; /* 浅灰色边框 */
+    border-radius: 16px; /* 圆弧形状 */
+    padding: 0;
+    margin: 0;
+    transition: all 0.2s ease-in-out;
+    overflow: hidden; /* 确保子元素不会超出圆角 */
+}
+
 .char-card-viewer-tab-button {
-    padding: 10px 15px;
+    flex-grow: 1;
+    padding: 6px 12px;
     cursor: pointer;
     background-color: transparent;
     border: none;
-    border-bottom: 3px solid transparent;
-    color: var(--text-muted-color);
-    margin-bottom: -1px;
-    transition: color 0.2s, border-color 0.2s;
+    color: #333333; /* 深色文字 */
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    white-space: nowrap;
 }
 
-.char-card-viewer-tab-button.active {
-    color: var(--primary-accent-color);
-    border-bottom-color: var(--primary-accent-color);
-    font-weight: bold;
+.char-card-viewer-delete-tab-button {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    border-left: 1px solid #d0d0d0; /* 分隔线 */
+    color: #888888; /* 默认灰色图标 */
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 12px; /* 图标大小 */
+    line-height: 1;
+    transition: all 0.2s ease-in-out;
+}
+
+.char-card-viewer-delete-tab-button:hover {
+    background-color: #f0f0f0;
+    color: var(--danger-color);
+}
+
+/* --- 激活状态 --- */
+.char-card-viewer-tab-button-wrapper.active {
+    background-color: var(--primary-accent-color); /* 紫色背景 */
+    border-color: var(--primary-accent-color);
+}
+
+.char-card-viewer-tab-button-wrapper.active .char-card-viewer-tab-button {
+    color: #ffffff; /* 白色文字 */
+}
+
+.char-card-viewer-tab-button-wrapper.active .char-card-viewer-delete-tab-button {
+    color: #ffffff;
+    border-left-color: var(--primary-accent-hover-color); /* 深一点的紫色分隔线 */
+}
+
+.char-card-viewer-tab-button-wrapper.active .char-card-viewer-delete-tab-button:hover {
+    background-color: var(--primary-accent-hover-color);
+}
+
+#char-card-viewer-delete-all {
+    background-color: var(--danger-color) !important;
+}
+
+#char-card-viewer-delete-all:hover {
+    background-color: #c0392b !important;
 }
 
 .char-card-viewer-popup-body {
