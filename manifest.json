@@ -3,7 +3,7 @@
     "display_name": "角色卡自动更新",
     "author": "默默 & Cline",
     "description": "一个自动更新角色卡描述的工具，允许使用自定义API基于最近的聊天记录为非用户角色生成和更新世界书条目。现已支持从GitHub自动更新。",
-  "version": "4.0.4",
+  "version": "4.0.8",
     "homePage": "https://github.com/1830488003/AutoCardUpdaterExtension",
     "auto_update": true,
     "tags": ["chat", "utility", "automation", "updater"],

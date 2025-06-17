@@ -1,5 +1,6 @@
 // SillyTavern Auto Card Updater Extension
 // index.js - Main logic file
+console.log('[AutoCardUpdater] Running version 4.0.8 with pure polling logic.');
 
 (function () {
   'use strict';
@@ -1155,7 +1156,39 @@
     }
   }
 
-  // --- 初始化与事件绑定 ---
+  // --- 核心逻辑 ---
+  async function getLatestChatName_ACU() {
+    let newChatFileIdentifier = 'unknown_chat_fallback';
+    let sourceOfIdentifier = '未确定';
+
+    try {
+        let chatNameFromCommand = null;
+        if (TavernHelper_API_ACU && typeof TavernHelper_API_ACU.triggerSlash === 'function') {
+            chatNameFromCommand = await TavernHelper_API_ACU.triggerSlash('/getchatname');
+        }
+
+        if (chatNameFromCommand && typeof chatNameFromCommand === 'string' && chatNameFromCommand.trim() && chatNameFromCommand.trim() !== 'null' && chatNameFromCommand.trim() !== 'undefined') {
+            newChatFileIdentifier = cleanChatName_ACU(chatNameFromCommand.trim());
+            sourceOfIdentifier = '/getchatname命令';
+        } else {
+            const contextFallback = SillyTavern_API_ACU.getContext ? SillyTavern_API_ACU.getContext() : null;
+            if (contextFallback && contextFallback.chat && typeof contextFallback.chat === 'string') {
+                const chatNameFromContext = cleanChatName_ACU(contextFallback.chat);
+                if (chatNameFromContext && !chatNameFromContext.startsWith('unknown_chat')) {
+                    newChatFileIdentifier = chatNameFromContext;
+                    sourceOfIdentifier = 'SillyTavern_API_ACU.getContext().chat';
+                }
+            }
+        }
+    } catch (error) {
+        logError_ACU('Error getting latest chat name:', error);
+        sourceOfIdentifier = '执行错误';
+    }
+    
+    logDebug_ACU(`getLatestChatName_ACU determined chat name: "${newChatFileIdentifier}" (Source: ${sourceOfIdentifier})`);
+    return newChatFileIdentifier;
+  }
+
   function bindSettingsEvents() {
     if (!$extensionSettingsPanel) return;
 
@@ -1217,9 +1250,6 @@
     jQuery_API_ACU = window.jQuery;
     toastr_API_ACU = window.toastr;
 
-    // const extensionName = "AutoCardUpdaterExtension"; // 已在顶部定义
-    // const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
-
     // 手动加载和注入UI
     try {
       const settingsHtml = await jQuery_API_ACU.get(`${extensionFolderPath_ACU}/settings.html`);
@@ -1232,7 +1262,6 @@
 
     // 定位到我们的设置面板
     $extensionSettingsPanel = jQuery_API_ACU(`.extension_settings[data-extension-name="${extensionName_ACU}"]`);
-
     if ($extensionSettingsPanel.length === 0) {
       console.error(`[${extensionName_ACU}] 未找到扩展设置面板!`);
       return;
@@ -1246,22 +1275,10 @@
 
     // 初始更新检查
     Updater_ACU.checkForUpdates(false);
-
-    // 注册SillyTavern事件
-    const eventSource = SillyTavern_API_ACU.eventSource;
-    if (eventSource) {
-        logDebug_ACU('Event source found, attaching listeners for real-time updates.');
-        eventSource.on('CHAT_CHANGED', resetScriptStateForNewChat_ACU);
-        const newMessageEvents = ['MESSAGE_SENT', 'MESSAGE_RECEIVED', 'CHAT_UPDATED', 'STREAM_ENDED'];
-        newMessageEvents.forEach(evName => {
-            eventSource.on(evName, () => handleNewMessageDebounced_ACU(evName));
-        });
-    } else {
-        logError_ACU('警告: SillyTavern.eventSource 未定义, 无法绑定实时事件。将完全依赖动态轮询机制。');
-    }
     
-    // 首次加载时，启动动态轮询
-    dynamicPollForUpdate_ACU();
+    // 首次加载时，获取初始聊天状态并启动轮询
+    const initialChatName = await getLatestChatName_ACU();
+    await resetScriptStateForNewChat_ACU(initialChatName);
 
     logDebug_ACU('扩展初始化成功!');
     toastr_API_ACU.success('角色卡自动更新扩展已加载！');
@@ -1379,30 +1396,17 @@
     }
   }
 
-  async function resetScriptStateForNewChat_ACU() {
-    logDebug_ACU('Resetting script state for new chat...');
+  async function resetScriptStateForNewChat_ACU(newChatName) {
+    logDebug_ACU(`Resetting script state for new chat: "${newChatName}"`);
     allChatMessages_ACU = [];
-    let chatNameFromCommand = null;
-    try {
-      chatNameFromCommand = await TavernHelper_API_ACU.triggerSlash('/getchatname');
-    } catch (error) {
-      logError_ACU('Error calling /getchatname:', error);
-    }
+    currentChatFileIdentifier_ACU = newChatName || 'unknown_chat_fallback';
 
-    if (chatNameFromCommand && typeof chatNameFromCommand === 'string' && chatNameFromCommand.trim()) {
-      currentChatFileIdentifier_ACU = cleanChatName_ACU(chatNameFromCommand.trim());
-    } else {
-      const contextFallback = SillyTavern_API_ACU.getContext();
-      currentChatFileIdentifier_ACU =
-        contextFallback && contextFallback.chat ? cleanChatName_ACU(contextFallback.chat) : 'unknown_chat_fallback';
-    }
-
-    logDebug_ACU(`currentChatFileIdentifier set to: "${currentChatFileIdentifier_ACU}"`);
-    
+    // 关键修复：在获取到新的聊天标识符后，立即加载消息并更新UI
+    await loadAllChatMessages_ACU();
     await manageAutoCardUpdateLorebookEntry_ACU();
 
     // 切换聊天时，立即重置并启动新的轮询周期
-    logDebug_ACU('Chat changed, restarting dynamic polling.');
+    logDebug_ACU('State reset complete. Restarting dynamic polling.');
     clearTimeout(pollingTimer_ACU);
     currentPollingInterval_ACU = MIN_POLLING_INTERVAL_ACU;
     dynamicPollForUpdate_ACU();
@@ -1412,9 +1416,20 @@
   async function dynamicPollForUpdate_ACU() {
     logDebug_ACU(`Executing dynamic poll. Current interval: ${currentPollingInterval_ACU / 1000}s.`);
     
+    // 1. 检查聊天是否已切换
+    const latestChatName = await getLatestChatName_ACU();
+    if (latestChatName && latestChatName !== currentChatFileIdentifier_ACU) {
+        logDebug_ACU(`Poll detected chat change from "${currentChatFileIdentifier_ACU}" to "${latestChatName}". Resetting state...`);
+        // resetScriptStateForNewChat_ACU 将处理所有重置逻辑并重新启动轮询，因此我们在这里停止当前执行
+        await resetScriptStateForNewChat_ACU(latestChatName);
+        return; 
+    }
+
+    // 2. 如果聊天未变，则继续进行正常的更新检查
     await loadAllChatMessages_ACU();
     const updated = await triggerAutomaticUpdateIfNeeded_ACU();
 
+    // 3. 智能调整下一次轮询的间隔
     if (updated) {
         logDebug_ACU('Update was performed. Resetting polling interval to minimum.');
         currentPollingInterval_ACU = MIN_POLLING_INTERVAL_ACU;
@@ -1424,23 +1439,9 @@
         logDebug_ACU(`No update performed. Next check interval: ${currentPollingInterval_ACU / 1000}s.`);
     }
     
-    // 安排下一次轮询
+    // 4. 安排下一次轮询
     clearTimeout(pollingTimer_ACU);
     pollingTimer_ACU = setTimeout(dynamicPollForUpdate_ACU, currentPollingInterval_ACU);
-  }
-
-  async function handleNewMessageDebounced_ACU(eventType = 'unknown') {
-    clearTimeout(newMessageDebounceTimer_ACU);
-    newMessageDebounceTimer_ACU = setTimeout(async () => {
-      logDebug_ACU(`Debounced new message processing triggered by ${eventType}. Restarting polling cycle.`);
-      if (isAutoUpdatingCard_ACU) return;
-      
-      // 当有新消息时，重置并立即触发一次新的轮询检查
-      clearTimeout(pollingTimer_ACU);
-      currentPollingInterval_ACU = MIN_POLLING_INTERVAL_ACU;
-      dynamicPollForUpdate_ACU();
-
-    }, NEW_MESSAGE_DEBOUNCE_DELAY_ACU);
   }
 
   async function triggerAutomaticUpdateIfNeeded_ACU() {
@@ -1763,40 +1764,86 @@
 
     isAutoUpdatingCard_ACU = false;
     $button.prop('disabled', false).text('立即更新角色描述');
+    
+    // 手动更新后，重置轮询周期以立即响应
+    logDebug_ACU('Manual update finished. Resetting polling cycle.');
+    clearTimeout(pollingTimer_ACU);
+    currentPollingInterval_ACU = MIN_POLLING_INTERVAL_ACU;
+    dynamicPollForUpdate_ACU();
   }
 
+  /**
+   * @summary 核心修复函数：管理所有与此扩展相关的世界书条目的启用/禁用状态。
+   * @description 此函数在每次聊天切换时被调用。它会：
+   * 1. 禁用所有不属于当前活动聊天的 "人物总览" 条目。
+   * 2. 启用属于当前活动聊天的 "人物总览" 条目。
+   * 3. 如果当前聊天的 "人物总览" 条目不存在，则会隐式地通过后续的 `updateCharacterRosterLorebookEntry_ACU` 调用来创建它。
+   * 4. 同时，它会正确地启用/禁用与当前聊天关联的所有单个角色卡条目。
+   */
   async function manageAutoCardUpdateLorebookEntry_ACU() {
     try {
-      const context = SillyTavern_API_ACU.getContext();
-      if (!context || !context.characterId) {
-        logDebug_ACU('No character selected, skipping lorebook management.');
-        return;
-      }
-      const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
-      if (!primaryLorebookName) return;
-
-      const entries = (await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName)) || [];
-      const entryPrefixGeneral = `角色卡更新-`;
-      const currentChatIdForEntry = currentChatFileIdentifier_ACU || '未知聊天';
-      const entryPrefixCurrentActiveChat =
-        currentChatIdForEntry !== '未知聊天' ? `${entryPrefixGeneral}${currentChatIdForEntry}-` : null;
-
-      const entriesToUpdate = [];
-      for (const entry of entries) {
-        if (entry.comment && entry.comment.startsWith(entryPrefixGeneral)) {
-          const shouldBeEnabled =
-            entryPrefixCurrentActiveChat && entry.comment.startsWith(entryPrefixCurrentActiveChat);
-          if (entry.enabled !== shouldBeEnabled) {
-            entriesToUpdate.push({ uid: entry.uid, enabled: shouldBeEnabled });
-          }
+        const context = SillyTavern_API_ACU.getContext();
+        if (!context || !context.characterId) {
+            logDebug_ACU('No character selected, skipping lorebook management.');
+            return;
         }
-      }
-      if (entriesToUpdate.length > 0) {
-        await TavernHelper_API_ACU.setLorebookEntries(primaryLorebookName, entriesToUpdate);
-        logDebug_ACU(`Updated ${entriesToUpdate.length} lorebook entries.`);
-      }
+        const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+        if (!primaryLorebookName) return;
+
+        const entries = (await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName)) || [];
+        const entryPrefixGeneral = `角色卡更新-`;
+        const rosterSuffix = '-人物总揽';
+        
+        // 关键：确保我们有一个有效的聊天标识符，否则中止操作以防止错误。
+        const currentChatId = currentChatFileIdentifier_ACU;
+        if (!currentChatId || currentChatId.startsWith('unknown_chat')) {
+            logError_ACU(`Invalid chat identifier "${currentChatId}". Aborting lorebook management to prevent errors.`);
+            return;
+        }
+
+        const currentChatEntryPrefix = `${entryPrefixGeneral}${currentChatId}-`;
+        let currentChatRosterExists = false;
+        const entriesToUpdate = [];
+
+        for (const entry of entries) {
+            if (entry.comment && entry.comment.startsWith(entryPrefixGeneral)) {
+                const isRosterEntry = entry.comment.endsWith(rosterSuffix);
+                let shouldBeEnabled = false;
+
+                if (isRosterEntry) {
+                    // 对于总览条目，只有当其comment完全匹配当前聊天的总览comment时才启用
+                    const expectedRosterComment = `${currentChatEntryPrefix}人物总揽`;
+                    if (entry.comment === expectedRosterComment) {
+                        shouldBeEnabled = true;
+                        currentChatRosterExists = true;
+                    }
+                } else {
+                    // 对于普通角色卡条目，只要前缀匹配当前聊天就启用
+                    if (entry.comment.startsWith(currentChatEntryPrefix)) {
+                        shouldBeEnabled = true;
+                    }
+                }
+
+                // 如果计算出的状态与当前状态不同，则添加到更新列表
+                if (entry.enabled !== shouldBeEnabled) {
+                    entriesToUpdate.push({ uid: entry.uid, enabled: shouldBeEnabled });
+                }
+            }
+        }
+
+        if (entriesToUpdate.length > 0) {
+            await TavernHelper_API_ACU.setLorebookEntries(primaryLorebookName, entriesToUpdate);
+            logDebug_ACU(`Managed ${entriesToUpdate.length} lorebook entries state for chat: ${currentChatId}.`);
+        }
+
+        // 如果当前聊天的总览条目不存在，则创建一个（通过调用更新函数，它会自动创建）
+        if (!currentChatRosterExists) {
+            logDebug_ACU(`Roster for chat "${currentChatId}" not found. Triggering creation.`);
+            await updateCharacterRosterLorebookEntry_ACU([]); // 传入空数组以创建或更新
+        }
+
     } catch (error) {
-      logError_ACU('Error managing lorebook entries:', error);
+        logError_ACU('Error managing lorebook entries:', error);
     }
   }
 
