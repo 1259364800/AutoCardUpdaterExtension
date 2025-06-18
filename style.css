@@ -18,8 +18,8 @@
 /* --- Viewer Popup --- */
 .char-card-viewer-popup {
     position: fixed !important;
-    top: 5vh !important; /* 安全的顶部边距，使用vh单位 */
-    height: 90vh !important; /* 高度占满剩余大部分空间 */
+    top: 10vh !important; /* 增加顶部边距，确保关闭按钮可见 */
+    max-height: 80vh !important; /* 最大高度为视窗的80% */
     left: 50% !important;
     transform: translateX(-50%) !important; /* 只进行水平居中 */
     width: 95vw !important; /* 宽度更宽一些以适应移动端 */
@@ -83,8 +83,8 @@
 .char-card-viewer-tab-button-wrapper {
     display: flex;
     align-items: center;
-    background-color: #ffffff; /* 默认白色背景 */
-    border: 1px solid #d0d0d0; /* 浅灰色边框 */
+    background-color: var(--bg2); /* 使用主题背景色 */
+    border: 1px solid var(--border-color); /* 使用主题边框色 */
     border-radius: 16px; /* 圆弧形状 */
     padding: 0;
     margin: 0;
@@ -98,7 +98,7 @@
     cursor: pointer;
     background-color: transparent;
     border: none;
-    color: #333333; /* 深色文字 */
+    color: var(--text-color); /* 使用主题文本色 */
     font-weight: 500;
     transition: all 0.2s ease-in-out;
     white-space: nowrap;
@@ -108,8 +108,8 @@
     flex-shrink: 0;
     background: none;
     border: none;
-    border-left: 1px solid #d0d0d0; /* 分隔线 */
-    color: #888888; /* 默认灰色图标 */
+    border-left: 1px solid var(--border-color); /* 分隔线 */
+    color: var(--text-muted-color); /* 使用主题次要文本色 */
     cursor: pointer;
     padding: 6px 10px;
     font-size: 12px; /* 图标大小 */
@@ -202,7 +202,7 @@
     margin-bottom: 12px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    background-color: #25252a; /* A solid dark color */
+    background-color: var(--bg1); /* 使用主题输入框背景色 */
     color: var(--text-color);
     box-sizing: border-box;
 }
