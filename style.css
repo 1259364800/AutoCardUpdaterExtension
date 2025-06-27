@@ -40,6 +40,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap; /* 允许在小屏幕上换行 */
+    gap: 10px; /* 为换行元素提供间隙 */
     padding: 12px 20px;
     background-color: var(--section-bg-color);
     border-bottom: 1px solid var(--border-color);
@@ -53,6 +55,8 @@
 
 .char-card-viewer-actions {
     display: flex;
+    flex-wrap: wrap; /* 允许按钮换行 */
+    justify-content: flex-end; /* 确保按钮在换行时靠右 */
     gap: 10px;
 }
 
