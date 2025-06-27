@@ -30,7 +30,7 @@
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
-    z-index: 1051;
+    z-index: 2001;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -269,7 +269,7 @@ button.menu_button {
 /* --- Viewer Floating Button (Adapted from quest-system-extension) --- */
 #autoCardUpdater-viewer-button {
     position: fixed !important;
-    z-index: 1050; 
+    z-index: 2000; 
     cursor: grab;
     width: 48px; 
     height: 48px;

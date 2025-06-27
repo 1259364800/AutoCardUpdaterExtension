@@ -807,6 +807,49 @@ console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as p
     }
   }
 
+  /**
+   * @summary 确保一个元素始终保持在窗口的可视边界内。
+   * @param {jQuery} element - 要操作的jQuery元素。
+   * @param {boolean} savePosition - 是否将最终位置保存到localStorage。
+   */
+  function keepButtonInBounds_ACU(element, savePosition = false) {
+      if (!element || !element.length) return;
+
+      const windowWidth = jQuery_API_ACU(window).width();
+      const windowHeight = jQuery_API_ACU(window).height();
+      const buttonWidth = element.outerWidth();
+      const buttonHeight = element.outerHeight();
+      
+      let currentPos = element.offset();
+      let newTop = currentPos.top;
+      let newLeft = currentPos.left;
+
+      // 检查并修正水平位置
+      if (newLeft + buttonWidth > windowWidth) {
+          newLeft = windowWidth - buttonWidth;
+      }
+      if (newLeft < 0) {
+          newLeft = 0;
+      }
+
+      // 检查并修正垂直位置
+      if (newTop + buttonHeight > windowHeight) {
+          newTop = windowHeight - buttonHeight;
+      }
+      if (newTop < 0) {
+          newTop = 0;
+      }
+
+      element.css({ top: `${newTop}px`, left: `${newLeft}px` });
+
+      if (savePosition) {
+          localStorage.setItem(
+              STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
+              JSON.stringify({ top: element.css('top'), left: element.css('left') })
+          );
+      }
+  }
+
   function makeButtonDraggable_ACU(button) {
     let isDragging = false;
     let wasDragged = false;
@@ -860,14 +903,11 @@ console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as p
         button.css('cursor', 'grab');
         jQuery_API_ACU('body').css({
             'user-select': 'auto',
-            '-webkit-user-select': 'auto'
+            '-webkit-user-select': 'auto',
         });
-        // 只有在拖动后才保存位置
+        // 拖动结束后，确保按钮在边界内并保存位置
         if (wasDragged) {
-            localStorage.setItem(
-                STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
-                JSON.stringify({ top: button.css('top'), left: button.css('left') }),
-            );
+            keepButtonInBounds_ACU(button, true); // true to save position
         }
     };
 
@@ -921,34 +961,8 @@ console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as p
         resizeTimeout_ACU = setTimeout(function () {
             const button = jQuery_API_ACU(`#${CHAR_CARD_VIEWER_BUTTON_ID}`);
             if (!button.length) return;
-
-            let currentLeft = button.offset().left;
-            let currentTop = button.offset().top;
-
-            // 检查并修正水平位置
-            const maxLeft = jQuery_API_ACU(window).width() - button.outerWidth();
-            if (currentLeft > maxLeft) {
-                currentLeft = maxLeft;
-            }
-            if (currentLeft < 0) {
-                currentLeft = 0;
-            }
-
-            // 检查并修正垂直位置
-            const maxTop = jQuery_API_ACU(window).height() - button.outerHeight();
-            if (currentTop > maxTop) {
-                currentTop = maxTop;
-            }
-            if (currentTop < 0) {
-                currentTop = 0;
-            }
-
-            button.css({ top: currentTop + 'px', left: currentLeft + 'px' });
-            // 更新本地存储中的位置
-            localStorage.setItem(
-                STORAGE_KEY_VIEWER_BUTTON_POS_ACU,
-                JSON.stringify({ top: button.css('top'), left: button.css('left') })
-            );
+            // 调用统一的边界检测函数，并保存新位置
+            keepButtonInBounds_ACU(button, true);
         }, 150);
     });
   }
