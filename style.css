@@ -82,6 +82,15 @@
     background-color: var(--section-bg-color);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    max-height: 180px; /* 限制最大高度，确保下方内容可见 */
+    overflow-y: auto; /* 超出高度时启用垂直滚动 */
+    -ms-overflow-style: none;  /* 隐藏滚动条 for IE and Edge */
+    scrollbar-width: none;  /* 隐藏滚动条 for Firefox */
+}
+
+/* 隐藏滚动条 for Chrome, Safari and Opera */
+.char-card-viewer-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .char-card-viewer-tab-button-wrapper {

@@ -812,10 +812,16 @@ console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as p
     let offset = { x: 0, y: 0 };
 
     const getCoords = (e) => {
-        return e.touches ? e.touches[0] : e;
+        // 对于触摸事件，安全地获取第一个触点
+        return e.touches && e.touches.length ? e.touches[0] : e;
     };
 
     const dragStart = function (e) {
+        // 对于触摸事件，明确阻止默认的浏览器行为（如长按菜单或页面滚动）
+        if (e.type === 'touchstart') {
+            e.preventDefault();
+        }
+        
         isDragging = true;
         wasDragged = false;
         const coords = getCoords(e);
@@ -832,8 +838,8 @@ console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as p
         if (!isDragging) return;
         wasDragged = true;
         
-        // 阻止触摸时的页面滚动
-        if (e.touches) {
+        // 关键：在触摸设备上拖动时，始终阻止页面的滚动行为
+        if (e.type === 'touchmove') {
             e.preventDefault();
         }
 
