@@ -897,7 +897,7 @@ console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as p
         button.css({ top: newY + 'px', left: newX + 'px', right: '', bottom: '' });
     };
 
-    const dragEnd = function () {
+    const dragEnd = function (e) {
         if (!isDragging) return;
         isDragging = false;
         button.css('cursor', 'grab');
@@ -908,6 +908,10 @@ console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as p
         // 拖动结束后，确保按钮在边界内并保存位置
         if (wasDragged) {
             keepButtonInBounds_ACU(button, true); // true to save position
+        } else if (e.type === 'touchend') {
+            // This is a tap on a touch device. Prevent the emulated click and open the popup.
+            e.preventDefault();
+            toggleCharCardViewerPopup_ACU();
         }
     };
 
