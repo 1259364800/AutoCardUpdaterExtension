@@ -593,7 +593,8 @@ console.log('[AutoCardUpdater] Running version 4.0.11 with direct API calls as p
         return `[START_CHAR_CARD]\n${content.trim()}\n[END_CHAR_CARD]`;
     };
 
-    popup$.find('.char-card-viewer-popup-close-button').on('click', closeCharCardViewerPopup_ACU);
+    // 使用事件委托方式绑定关闭按钮，以增强在动态环境下的稳定性
+    popup$.on('click', '.char-card-viewer-popup-close-button', closeCharCardViewerPopup_ACU);
     popup$.find('#char-card-viewer-refresh').on('click', () => {
         showToastr_ACU('info', '正在刷新角色数据...');
         showCharCardViewerPopup_ACU();
