@@ -215,8 +215,8 @@
     margin-bottom: 12px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    background-color: var(--bg1); /* 使用主题输入框背景色 */
-    color: var(--text-color);
+    background-color: #202225; /* 强制使用插件自定义的深色背景，避免受主题影响 */
+    color: #dcddde; /* 强制使用插件自定义的浅色字体，确保可读性 */
     box-sizing: border-box;
 }
 
