@@ -1,118 +1,244 @@
-<div class="auto-card-updater-settings extension_settings" data-extension-name="AutoCardUpdaterExtension">
+<div
+    class="auto-card-updater-settings extension_settings"
+    data-extension-name="AutoCardUpdaterExtension"
+>
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header">
             <b><i class="fa-solid fa-address-card"></i> 角色卡自动更新</b>
-            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+            <div
+                class="inline-drawer-icon fa-solid fa-circle-chevron-down down"
+            ></div>
         </div>
         <div class="inline-drawer-content">
             <div class="description_text">
                 一个自动更新角色卡描述的工具。插件作者: 默默 & Cline
             </div>
-            
+
             <!-- 版本更新与联系方式区域 -->
             <div class="auto-card-updater-version-panel">
-                <p>当前版本: <span id="auto-card-updater-current-version">0.0.0</span></p>
-                <button id="auto-card-updater-check-for-updates" class="menu_button"><i class="fa-solid fa-cloud-arrow-down"></i> 检查更新</button>
+                <p>
+                    当前版本:
+                    <span id="auto-card-updater-current-version">0.0.0</span>
+                </p>
+                <button
+                    id="auto-card-updater-check-for-updates"
+                    class="menu_button"
+                >
+                    <i class="fa-solid fa-cloud-arrow-down"></i> 检查更新
+                </button>
             </div>
-            <div class="description_text" style="text-align: center; margin-top: 5px;">
+            <div
+                class="description_text"
+                style="text-align: center; margin-top: 5px"
+            >
                 有任何问题请加QQ群: 118774271
             </div>
 
-            <hr>
+            <hr />
 
             <!-- API 设置 -->
             <div class="inline-drawer">
-                <div class="inline-drawer-toggle inline-drawer-header sub-header">
+                <div
+                    class="inline-drawer-toggle inline-drawer-header sub-header"
+                >
                     <b>API设置</b>
-                    <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+                    <div
+                        class="inline-drawer-icon fa-solid fa-circle-chevron-down down"
+                    ></div>
                 </div>
                 <div class="inline-drawer-content">
-                    <div class="description_text"><b>安全提示:</b> API密钥将保存在浏览器本地存储中。</div>
+                    <div class="description_text">
+                        <b>安全提示:</b> API密钥将保存在浏览器本地存储中。
+                    </div>
                     <label for="autoCardUpdater-api-url">API基础URL:</label>
-                    <input type="text" id="autoCardUpdater-api-url" class="text_pole">
+                    <input
+                        type="text"
+                        id="autoCardUpdater-api-url"
+                        class="text_pole"
+                    />
                     <label for="autoCardUpdater-api-key">API密钥(可选):</label>
-                    <input type="password" id="autoCardUpdater-api-key" class="text_pole">
+                    <input
+                        type="password"
+                        id="autoCardUpdater-api-key"
+                        class="text_pole"
+                    />
                     <label for="autoCardUpdater-api-model">选择模型:</label>
                     <div class="auto_card_updater_input_with_button">
-                        <select id="autoCardUpdater-api-model" class="text_pole"></select>
-                        <button id="autoCardUpdater-load-models" class="menu_button"><i class="fa-solid fa-cloud-download"></i> 加载模型</button>
+                        <select
+                            id="autoCardUpdater-api-model"
+                            class="text_pole"
+                        ></select>
+                        <button
+                            id="autoCardUpdater-load-models"
+                            class="menu_button"
+                        >
+                            <i class="fa-solid fa-cloud-download"></i> 加载模型
+                        </button>
                     </div>
-                    <div id="autoCardUpdater-api-status" class="description_text"></div>
+                    <div
+                        id="autoCardUpdater-api-status"
+                        class="description_text"
+                    ></div>
                     <div class="button-group">
-                        <button id="autoCardUpdater-save-config" class="menu_button wide_button"><i class="fa-solid fa-floppy-disk"></i> 保存API</button>
-                        <button id="autoCardUpdater-clear-config" class="menu_button wide_button"><i class="fa-solid fa-trash-can"></i> 清除API</button>
+                        <button
+                            id="autoCardUpdater-save-config"
+                            class="menu_button wide_button"
+                        >
+                            <i class="fa-solid fa-floppy-disk"></i> 保存API
+                        </button>
+                        <button
+                            id="autoCardUpdater-clear-config"
+                            class="menu_button wide_button"
+                        >
+                            <i class="fa-solid fa-trash-can"></i> 清除API
+                        </button>
                     </div>
                 </div>
             </div>
 
             <!-- 提示词设置 -->
             <div class="inline-drawer">
-                <div class="inline-drawer-toggle inline-drawer-header sub-header">
+                <div
+                    class="inline-drawer-toggle inline-drawer-header sub-header"
+                >
                     <b>提示词设置</b>
-                    <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+                    <div
+                        class="inline-drawer-icon fa-solid fa-circle-chevron-down down"
+                    ></div>
                 </div>
                 <div class="inline-drawer-content">
-                    <label for="autoCardUpdater-break-armor-prompt-textarea">破甲预设:</label>
-                    <textarea id="autoCardUpdater-break-armor-prompt-textarea" class="text_pole" rows="5"></textarea>
+                    <label for="autoCardUpdater-break-armor-prompt-textarea"
+                        >破甲预设:</label
+                    >
+                    <textarea
+                        id="autoCardUpdater-break-armor-prompt-textarea"
+                        class="text_pole"
+                        rows="5"
+                    ></textarea>
                     <div class="button-group">
-                        <button id="autoCardUpdater-save-break-armor-prompt" class="menu_button wide_button">保存破甲预设</button>
-                        <button id="autoCardUpdater-reset-break-armor-prompt" class="menu_button wide_button">恢复默认</button>
+                        <button
+                            id="autoCardUpdater-save-break-armor-prompt"
+                            class="menu_button wide_button"
+                        >
+                            保存破甲预设
+                        </button>
+                        <button
+                            id="autoCardUpdater-reset-break-armor-prompt"
+                            class="menu_button wide_button"
+                        >
+                            恢复默认
+                        </button>
                     </div>
-                    <hr>
-                    <label for="autoCardUpdater-char-card-prompt-textarea">角色卡预设:</label>
-                    <textarea id="autoCardUpdater-char-card-prompt-textarea" class="text_pole" rows="8"></textarea>
+                    <hr />
+                    <label for="autoCardUpdater-char-card-prompt-textarea"
+                        >角色卡预设:</label
+                    >
+                    <textarea
+                        id="autoCardUpdater-char-card-prompt-textarea"
+                        class="text_pole"
+                        rows="8"
+                    ></textarea>
                     <div class="button-group">
-                        <button id="autoCardUpdater-save-char-card-prompt" class="menu_button wide_button">保存角色卡预设</button>
-                        <button id="autoCardUpdater-reset-char-card-prompt" class="menu_button wide_button">恢复默认</button>
+                        <button
+                            id="autoCardUpdater-save-char-card-prompt"
+                            class="menu_button wide_button"
+                        >
+                            保存角色卡预设
+                        </button>
+                        <button
+                            id="autoCardUpdater-reset-char-card-prompt"
+                            class="menu_button wide_button"
+                        >
+                            恢复默认
+                        </button>
                     </div>
                 </div>
             </div>
-            
+
             <!-- 功能设置 -->
             <div class="inline-drawer">
-                <div class="inline-drawer-toggle inline-drawer-header sub-header">
+                <div
+                    class="inline-drawer-toggle inline-drawer-header sub-header"
+                >
                     <b>更新所有角色描述</b>
-                    <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+                    <div
+                        class="inline-drawer-icon fa-solid fa-circle-chevron-down down"
+                    ></div>
                 </div>
                 <div class="inline-drawer-content">
                     <div class="setting_item">
-                        <label for="autoCardUpdater-auto-update-threshold">AI读取上下文层数 (M)</label>
-                        <input type="number" id="autoCardUpdater-auto-update-threshold" class="text_pole" style="width: 80px;" min="1" max="100">
+                        <label for="autoCardUpdater-auto-update-threshold"
+                            >AI读取上下文层数 (M)</label
+                        >
+                        <input
+                            type="number"
+                            id="autoCardUpdater-auto-update-threshold"
+                            class="text_pole"
+                            style="width: 80px"
+                            min="1"
+                            max="100"
+                        />
                     </div>
                     <div class="button-group">
-                        <button id="autoCardUpdater-save-auto-update-threshold" class="menu_button wide_button">保存上下文层数</button>
+                        <button
+                            id="autoCardUpdater-save-auto-update-threshold"
+                            class="menu_button wide_button"
+                        >
+                            保存上下文层数
+                        </button>
                     </div>
 
-                    <hr>
+                    <hr />
 
                     <div class="setting_item">
                         <span>启用自动更新所有角色卡</span>
                         <div class="SillyTavernSwitch">
-                            <input id="autoCardUpdater-auto-update-enabled-checkbox" type="checkbox">
+                            <input
+                                id="autoCardUpdater-auto-update-enabled-checkbox"
+                                type="checkbox"
+                            />
                             <div class="SillyTavernSlider"></div>
                         </div>
                     </div>
-                    <div class="description_text">当新消息数量达到M值时，将自动调用AI更新角色卡。</div>
-                    
-                    <hr>
-                    
+                    <div class="description_text">
+                        当新消息数量达到M值时，将自动调用AI更新角色卡。
+                    </div>
+
+                    <hr />
+
                     <div class="setting_item">
                         <span>手动更新</span>
-                        <button id="autoCardUpdater-manual-update-card" class="menu_button"><i class="fa-solid fa-bolt"></i> 立即更新</button>
+                        <button
+                            id="autoCardUpdater-manual-update-card"
+                            class="menu_button"
+                        >
+                            <i class="fa-solid fa-bolt"></i> 立即更新
+                        </button>
                     </div>
-                    <div id="autoCardUpdater-card-update-status-display" class="description_text"></div>
-                    <div id="autoCardUpdater-total-messages-display" class="description_text"></div>
-                    
-                    <hr>
+                    <div
+                        id="autoCardUpdater-card-update-status-display"
+                        class="description_text"
+                    ></div>
+                    <div
+                        id="autoCardUpdater-total-messages-display"
+                        class="description_text"
+                    ></div>
+
+                    <hr />
 
                     <div class="setting_item">
                         <span>启用角色卡查看器浮动按钮</span>
                         <div class="SillyTavernSwitch">
-                            <input id="char-card-viewer-enabled-checkbox" type="checkbox">
+                            <input
+                                id="char-card-viewer-enabled-checkbox"
+                                type="checkbox"
+                            />
                             <div class="SillyTavernSlider"></div>
                         </div>
                     </div>
-                    <div class="description_text">在主界面显示一个可拖动的按钮，点击可查看当前角色的核心数据。</div>
+                    <div class="description_text">
+                        在主界面显示一个可拖动的按钮，点击可查看当前角色的核心数据。
+                    </div>
                 </div>
             </div>
         </div>
