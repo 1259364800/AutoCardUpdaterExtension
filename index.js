@@ -7,7 +7,7 @@ console.log(
 (function () {
     'use strict';
 
-    const extensionName_ACU = 'AutoCardUpdaterExtension';
+    const extensionName_ACU = 'AutoCardUpdaterExtensionSelf';
     const extensionFolderPath_ACU = `scripts/extensions/third-party/${extensionName_ACU}`;
 
     // --- Updater Module ---
