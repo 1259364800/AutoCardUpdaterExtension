@@ -179,12 +179,31 @@
                             max="100"
                         />
                     </div>
+                    <div class="setting_item">
+                        <label for="autoCardUpdater-auto-update-offset"
+                            >触发偏移量 (X)</label
+                        >
+                        <input
+                            type="number"
+                            id="autoCardUpdater-auto-update-offset"
+                            class="text_pole"
+                            style="width: 80px"
+                            min="0"
+                            max="50"
+                        />
+                    </div>
                     <div class="button-group">
                         <button
                             id="autoCardUpdater-save-auto-update-threshold"
                             class="menu_button wide_button"
                         >
                             保存上下文层数
+                        </button>
+                        <button
+                            id="autoCardUpdater-save-auto-update-offset"
+                            class="menu_button wide_button"
+                        >
+                            保存偏移量
                         </button>
                     </div>
 
@@ -201,7 +220,7 @@
                         </div>
                     </div>
                     <div class="description_text">
-                        当新消息数量达到M值时，将自动调用AI更新角色卡。
+                        当新消息数量达到(M+X)值时，将自动调用AI更新角色卡。其中M为上下文层数，X为偏移量。
                     </div>
 
                     <hr />

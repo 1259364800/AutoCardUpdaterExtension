@@ -185,6 +185,7 @@ console.log(
     const STORAGE_KEY_CHAR_CARD_PROMPT_ACU = `${SCRIPT_ID_PREFIX_ACU}_charCardPrompt_v1`;
     const STORAGE_KEY_PROMPT_VERSION_ACU = `${SCRIPT_ID_PREFIX_ACU}_promptVersion_v1`;
     const STORAGE_KEY_AUTO_UPDATE_THRESHOLD_ACU = `${SCRIPT_ID_PREFIX_ACU}_autoUpdateThreshold_v1`;
+    const STORAGE_KEY_AUTO_UPDATE_OFFSET_ACU = `${SCRIPT_ID_PREFIX_ACU}_autoUpdateOffset_v1`;
     const STORAGE_KEY_AUTO_UPDATE_ENABLED_ACU = `${SCRIPT_ID_PREFIX_ACU}_autoUpdateEnabled_v1`;
     const STORAGE_KEY_VIEWER_ENABLED_ACU = `${SCRIPT_ID_PREFIX_ACU}_viewerEnabled_v1`;
     const STORAGE_KEY_VIEWER_BUTTON_POS_ACU = `${SCRIPT_ID_PREFIX_ACU}_viewerButtonPos_v1`;
@@ -327,6 +328,7 @@ console.log(
     ].join('\n');
 
     const DEFAULT_AUTO_UPDATE_THRESHOLD_ACU = 20;
+    const DEFAULT_AUTO_UPDATE_OFFSET_ACU = 4;
 
     // --- 核心API与全局变量 ---
     let SillyTavern_API_ACU,
@@ -345,6 +347,7 @@ console.log(
     let currentBreakArmorPrompt_ACU = DEFAULT_BREAK_ARMOR_PROMPT_ACU;
     let currentCharCardPrompt_ACU = DEFAULT_CHAR_CARD_PROMPT_ACU;
     let autoUpdateThreshold_ACU = DEFAULT_AUTO_UPDATE_THRESHOLD_ACU;
+    let autoUpdateOffset_ACU = DEFAULT_AUTO_UPDATE_OFFSET_ACU;
     let autoUpdateEnabled_ACU = true;
     let viewerEnabled_ACU = true;
     let isAutoUpdatingCard_ACU = false;
@@ -1322,6 +1325,22 @@ console.log(
         }
 
         try {
+            const savedOffset = localStorage.getItem(
+                STORAGE_KEY_AUTO_UPDATE_OFFSET_ACU,
+            );
+            autoUpdateOffset_ACU = savedOffset
+                ? parseInt(savedOffset, 10)
+                : DEFAULT_AUTO_UPDATE_OFFSET_ACU;
+            if (isNaN(autoUpdateOffset_ACU) || autoUpdateOffset_ACU < 0) {
+                autoUpdateOffset_ACU = DEFAULT_AUTO_UPDATE_OFFSET_ACU;
+                localStorage.removeItem(STORAGE_KEY_AUTO_UPDATE_OFFSET_ACU);
+            }
+        } catch (error) {
+            logError_ACU('加载自动更新偏移量失败:', error);
+            autoUpdateOffset_ACU = DEFAULT_AUTO_UPDATE_OFFSET_ACU;
+        }
+
+        try {
             const savedAutoUpdateEnabled = localStorage.getItem(
                 STORAGE_KEY_AUTO_UPDATE_ENABLED_ACU,
             );
@@ -1388,6 +1407,9 @@ console.log(
         $extensionSettingsPanel
             .find('#autoCardUpdater-auto-update-threshold')
             .val(autoUpdateThreshold_ACU);
+        $extensionSettingsPanel
+            .find('#autoCardUpdater-auto-update-offset')
+            .val(autoUpdateOffset_ACU);
         $extensionSettingsPanel
             .find('#autoCardUpdater-auto-update-enabled-checkbox')
             .prop('checked', autoUpdateEnabled_ACU);
@@ -1527,6 +1549,30 @@ console.log(
             $extensionSettingsPanel
                 .find('#autoCardUpdater-auto-update-threshold')
                 .val(autoUpdateThreshold_ACU);
+        }
+    }
+
+    function saveAutoUpdateOffset_ACU() {
+        const valStr = $extensionSettingsPanel
+            .find('#autoCardUpdater-auto-update-offset')
+            .val();
+        const newO = parseInt(valStr, 10);
+        if (!isNaN(newO) && newO >= 0) {
+            autoUpdateOffset_ACU = newO;
+            try {
+                localStorage.setItem(
+                    STORAGE_KEY_AUTO_UPDATE_OFFSET_ACU,
+                    autoUpdateOffset_ACU.toString(),
+                );
+                showToastr_ACU('success', '自动更新偏移量已保存！');
+            } catch (error) {
+                logError_ACU('保存偏移量失败:', error);
+            }
+        } else {
+            showToastr_ACU('warning', `偏移量 "${valStr}" 无效。`);
+            $extensionSettingsPanel
+                .find('#autoCardUpdater-auto-update-offset')
+                .val(autoUpdateOffset_ACU);
         }
     }
 
@@ -1749,6 +1795,11 @@ console.log(
             'click',
             '#autoCardUpdater-save-auto-update-threshold',
             saveAutoUpdateThreshold_ACU,
+        );
+        $extensionSettingsPanel.on(
+            'click',
+            '#autoCardUpdater-save-auto-update-offset',
+            saveAutoUpdateOffset_ACU,
         );
 
         $extensionSettingsPanel.on(
@@ -2091,6 +2142,8 @@ console.log(
         }
 
         const currentThreshold_M = autoUpdateThreshold_ACU;
+        const currentOffset_X = autoUpdateOffset_ACU;
+        const triggerThreshold = currentThreshold_M + currentOffset_X;
         let maxEndFloorInLorebook = 0;
 
         try {
@@ -2134,20 +2187,84 @@ console.log(
         const unupdatedCount =
             allChatMessages_ACU.length - maxEndFloorInLorebook;
         logDebug_ACU(
-            `Un-updated message count: ${unupdatedCount} (Threshold: ${currentThreshold_M})`,
+            `Un-updated message count: ${unupdatedCount} (Trigger threshold: ${triggerThreshold}, Context layers: ${currentThreshold_M}, Offset: ${currentOffset_X})`,
         );
 
-        if (unupdatedCount >= currentThreshold_M) {
-            showToastr_ACU(
-                'info',
-                `检测到 ${unupdatedCount} 条新消息，将自动更新角色卡。`,
-            );
-            const messagesToUse =
-                allChatMessages_ACU.slice(-currentThreshold_M);
+        if (unupdatedCount >= triggerThreshold) {
             isAutoUpdatingCard_ACU = true;
-            await proceedWithCardUpdate_ACU(messagesToUse, '');
+            let totalUpdates = 0;
+            
+            // 循环处理，直到不满足触发条件
+            while (true) {
+                // 重新获取最新的已总结楼层（因为可能已经更新了）
+                let currentMaxEndFloor = 0;
+                try {
+                    const context = SillyTavern_API_ACU.getContext();
+                    if (context && context.characterId && context.name2) {
+                        const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+                        if (primaryLorebookName) {
+                            const entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName);
+                            const entryPrefixForCurrentChat = `角色卡更新-${currentChatFileIdentifier_ACU}-`;
+                            let tempMaxEndFloor = -1;
+                            for (const entry of entries) {
+                                if (entry.comment && entry.comment.startsWith(entryPrefixForCurrentChat)) {
+                                    const match = entry.comment.match(/-(\d+)-(\d+)$/);
+                                    if (match && match[2]) {
+                                        const endFloor = parseInt(match[2], 10);
+                                        if (endFloor > tempMaxEndFloor) tempMaxEndFloor = endFloor;
+                                    }
+                                }
+                            }
+                            if (tempMaxEndFloor !== -1) currentMaxEndFloor = tempMaxEndFloor;
+                        }
+                    }
+                } catch (e) {
+                    logError_ACU('Error getting current max end floor:', e);
+                    break;
+                }
+                
+                // 计算当前未更新的消息数
+                const currentUnupdatedCount = allChatMessages_ACU.length - currentMaxEndFloor;
+                
+                // 检查是否还满足触发条件
+                if (currentUnupdatedCount < triggerThreshold) {
+                    break; // 不满足条件，退出循环
+                }
+                
+                // 计算本次需要总结的消息范围
+                const startFloor = currentMaxEndFloor + 1;
+                const endFloor = Math.min(startFloor + currentThreshold_M - 1, allChatMessages_ACU.length - 1);
+                
+                showToastr_ACU(
+                    'info',
+                    `自动更新第${totalUpdates + 1}轮：总结楼层 ${startFloor}-${endFloor}（剩余未处理：${currentUnupdatedCount - currentThreshold_M}条）。`,
+                );
+                
+                // 总结当前M层消息
+                const messagesToUse = allChatMessages_ACU.slice(startFloor, endFloor + 1);
+                const success = await proceedWithCardUpdate_ACU(messagesToUse, '', startFloor, endFloor);
+                
+                // 如果总结失败，停止重试
+                if (!success) {
+                    logError_ACU(`总结楼层 ${startFloor}-${endFloor} 失败，停止后续处理`);
+                    showToastr_ACU('error', `总结楼层 ${startFloor}-${endFloor} 失败，已停止处理`);
+                    break;
+                }
+                
+                totalUpdates++;
+                
+                // 防止无限循环
+                if (totalUpdates > 10) {
+                    logError_ACU('Too many update cycles, breaking to prevent infinite loop');
+                    break;
+                }
+            }
+            
             isAutoUpdatingCard_ACU = false;
-            return true; //  <-- 返回true表示执行了更新
+            if (totalUpdates > 0) {
+                showToastr_ACU('success', `自动更新完成，共处理了${totalUpdates}轮。`);
+            }
+            return totalUpdates > 0; // 返回是否执行了更新
         }
         return false; // <-- 返回false表示未执行更新
     }
@@ -2393,6 +2510,8 @@ console.log(
     async function proceedWithCardUpdate_ACU(
         messagesToUse,
         lorebookContentToUse,
+        startFloor = null,
+        endFloor = null,
     ) {
         const statusUpdater = (text) => {
             if ($extensionSettingsPanel) {
@@ -2401,7 +2520,14 @@ console.log(
                     .text(text);
             }
         };
-        statusUpdater('正在生成角色卡描述...');
+        
+        // 显示详细的总结信息
+        if (startFloor !== null && endFloor !== null) {
+            statusUpdater(`正在总结楼层 ${startFloor}-${endFloor} 的内容...`);
+            showToastr_ACU('info', `开始总结楼层 ${startFloor}-${endFloor} 的内容`);
+        } else {
+            statusUpdater('正在生成角色卡描述...');
+        }
 
         try {
             let aiResponse = await callCustomOpenAI_ACU(
@@ -2510,10 +2636,84 @@ console.log(
         isAutoUpdatingCard_ACU = true;
 
         await loadAllChatMessages_ACU();
-        const messagesToProcess = allChatMessages_ACU.slice(
-            -autoUpdateThreshold_ACU,
-        );
-        await proceedWithCardUpdate_ACU(messagesToProcess, '');
+        
+        // 手动更新：获取已总结的最大楼层，然后总结所有未处理的内容
+        let maxEndFloorInLorebook = 0;
+        try {
+            const context = SillyTavern_API_ACU.getContext();
+            if (context && context.characterId && context.name2) {
+                const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+                if (primaryLorebookName) {
+                    const entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName);
+                    const entryPrefixForCurrentChat = `角色卡更新-${currentChatFileIdentifier_ACU}-`;
+                    let tempMaxEndFloor = -1;
+                    for (const entry of entries) {
+                        if (entry.comment && entry.comment.startsWith(entryPrefixForCurrentChat)) {
+                            const match = entry.comment.match(/-(\d+)-(\d+)$/);
+                            if (match && match[2]) {
+                                const endFloor = parseInt(match[2], 10);
+                                if (endFloor > tempMaxEndFloor) tempMaxEndFloor = endFloor;
+                            }
+                        }
+                    }
+                    if (tempMaxEndFloor !== -1) maxEndFloorInLorebook = tempMaxEndFloor;
+                }
+            }
+        } catch (e) {
+            logError_ACU('Error getting max end floor from lorebook for manual update:', e);
+        }
+
+        // 手动更新：循环处理，直到不满足触发条件
+        let totalUpdates = 0;
+        let currentMaxEndFloor = maxEndFloorInLorebook;
+        
+        while (true) {
+            // 计算当前未更新的消息数
+            const currentUnupdatedCount = allChatMessages_ACU.length - currentMaxEndFloor;
+            
+            // 检查是否还满足触发条件
+            if (currentUnupdatedCount < triggerThreshold) {
+                if (totalUpdates === 0) {
+                    showToastr_ACU('info', '当前未处理消息数不足，无需更新。');
+                }
+                break; // 不满足条件，退出循环
+            }
+            
+            // 计算本次需要总结的消息范围
+            const startFloor = currentMaxEndFloor + 1;
+            const endFloor = Math.min(startFloor + currentThreshold_M - 1, allChatMessages_ACU.length - 1);
+            
+            showToastr_ACU(
+                'info',
+                `手动更新第${totalUpdates + 1}轮：总结楼层 ${startFloor}-${endFloor}（剩余未处理：${currentUnupdatedCount - currentThreshold_M}条）。`,
+            );
+            
+            // 总结当前M层消息
+            const messagesToProcess = allChatMessages_ACU.slice(startFloor, endFloor + 1);
+            const success = await proceedWithCardUpdate_ACU(messagesToProcess, '', startFloor, endFloor);
+            
+            // 如果总结失败，停止重试
+            if (!success) {
+                logError_ACU(`总结楼层 ${startFloor}-${endFloor} 失败，停止后续处理`);
+                showToastr_ACU('error', `总结楼层 ${startFloor}-${endFloor} 失败，已停止处理`);
+                break;
+            }
+            
+            totalUpdates++;
+            
+            // 更新当前已总结的最大楼层
+            currentMaxEndFloor = endFloor;
+            
+            // 防止无限循环
+            if (totalUpdates > 20) {
+                logError_ACU('Too many manual update cycles, breaking to prevent infinite loop');
+                break;
+            }
+        }
+        
+        if (totalUpdates > 0) {
+            showToastr_ACU('success', `手动更新完成，共处理了${totalUpdates}轮。`);
+        }
 
         isAutoUpdatingCard_ACU = false;
 
