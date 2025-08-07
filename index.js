@@ -312,15 +312,15 @@ console.log(
         '[social_ectophenotype.social.impression_on_others]:初见时可能被认为是冷漠和难以接近的，但深入了解后会发现她的可靠与温情。',
         '[traits.0.name]:守护者的责任',
         '[traits.0.definition]:将保护家园和族人视为不可推卸的责任，并愿意为此付出一切。',
-        '[traits.0.examples.0]:“我不能离开，森林之心需要我的力量来抑制腐化的蔓延。”',
+        '[traits.0.examples.0]:"我不能离开，森林之心需要我的力量来抑制腐化的蔓延。"',
         '[traits.1.name]:对自然的共情',
         '[traits.1.definition]:能够深刻地感受并理解自然界的生命，并与之建立情感联系。',
-        '[traits.1.examples.0]:“当她触摸那棵枯萎的古树时，我看到她眼中闪过一丝真正的痛苦。”',
+        '[traits.1.examples.0]:"当她触摸那棵枯萎的古树时，我看到她眼中闪过一丝真正的痛苦。"',
         '[corpus.style_summary]:语言正式、典雅，多使用比喻和充满哲理的句子。',
-        '[corpus.quotes.0]:“每一片树叶的凋零，都像是我们历史书页的燃烧。”',
-        '[corpus.quotes.1]:“信任不是轻易给予的赠礼，而是需要用行动去赢得的珍宝。”',
+        '[corpus.quotes.0]:"每一片树叶的凋零，都像是我们历史书页的燃烧。"',
+        '[corpus.quotes.1]:"信任不是轻易给予的赠礼，而是需要用行动去赢得的珍宝。"',
         '[relationships.0.name]:玩家',
-        '[relationships.0.summary]:一个充满变数的闯入者。伊芙琳对他既抱有希望，也心存疑虑，关系正在从“外来者”向“潜在的盟友”转变。',
+        '[relationships.0.summary]:一个充满变数的闯入者。伊芙琳对他既抱有希望，也心存疑虑，关系正在从"外来者"向"潜在的盟友"转变。',
         '[relationships.0.impact_on_protagonist]:伊芙琳是主角深入了解这个世界和核心任务的关键人物，她的信任是推动剧情发展的必要条件。',
         '[END_CHAR_CARD]',
         '',
@@ -2666,6 +2666,11 @@ console.log(
         // 手动更新：循环处理，直到不满足触发条件
         let totalUpdates = 0;
         let currentMaxEndFloor = maxEndFloorInLorebook;
+        
+        // 修复：在手动更新函数中定义这些变量
+        const currentThreshold_M = autoUpdateThreshold_ACU;
+        const currentOffset_X = autoUpdateOffset_ACU;
+        const triggerThreshold = currentThreshold_M + currentOffset_X;
         
         while (true) {
             // 计算当前未更新的消息数
