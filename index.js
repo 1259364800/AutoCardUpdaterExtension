@@ -2671,12 +2671,57 @@ console.log(
 
             if (!aiResponse) throw new Error('AI未能生成有效描述。');
 
-            // 修正：优先使用传入的楼层参数，如果没有传入则使用默认计算
-            const endFloor_0idx = endFloor !== null ? endFloor : allChatMessages_ACU.length - 1;
-            const startFloor_0idx = startFloor !== null ? startFloor : Math.max(
+            // 获取当前更新的结束楼层
+            const currentEndFloor = endFloor !== null ? endFloor : allChatMessages_ACU.length - 1;
+            
+            // 获取当前更新的开始楼层（用于新角色）
+            const currentStartFloor = startFloor !== null ? startFloor : Math.max(
                 0,
                 allChatMessages_ACU.length - messagesToUse.length,
             );
+
+            // 预先获取所有角色在世界书中的记录信息
+            const characterFloorRanges = new Map(); // 存储每个角色的楼层范围信息
+            try {
+                const context = SillyTavern_API_ACU.getContext();
+                if (context && context.characterId && context.name2) {
+                    const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+                    if (primaryLorebookName) {
+                        const entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName);
+                        const entryPrefixForCurrentChat = `角色卡更新-${currentChatFileIdentifier_ACU}-`;
+                        
+                        for (const entry of entries) {
+                            if (entry.comment && entry.comment.startsWith(entryPrefixForCurrentChat)) {
+                                const match = entry.comment.match(/-(\d+)-(\d+)$/);
+                                if (match && match[1] && match[2]) {
+                                    const entryStartFloor = parseInt(match[1], 10);
+                                    const entryEndFloor = parseInt(match[2], 10);
+                                    
+                                    // 提取角色名称
+                                    const charNameMatch = entry.comment.match(new RegExp(`${entryPrefixForCurrentChat}(.+?)-\\d+-\\d+$`));
+                                    if (charNameMatch) {
+                                        const charName = charNameMatch[1];
+                                        
+                                        // 更新该角色的楼层范围（取最小开始楼层和最大结束楼层）
+                                        if (characterFloorRanges.has(charName)) {
+                                            const existing = characterFloorRanges.get(charName);
+                                            existing.startFloor = Math.min(existing.startFloor, entryStartFloor);
+                                            existing.endFloor = Math.max(existing.endFloor, entryEndFloor);
+                                        } else {
+                                            characterFloorRanges.set(charName, {
+                                                startFloor: entryStartFloor,
+                                                endFloor: entryEndFloor
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                logError_ACU('Error getting character floor ranges from lorebook:', e);
+            }
 
             // Split the AI response into individual character card blocks.
             const characterBlocks = aiResponse
@@ -2723,12 +2768,28 @@ console.log(
                     continue;
                 }
 
+                // 计算该角色应该保存的楼层范围
+                let worldBookStartFloor, worldBookEndFloor;
+                
+                if (characterFloorRanges.has(charName)) {
+                    // 已有记录的角色：从第一次记录开始到当前结束的完整范围
+                    const existingRange = characterFloorRanges.get(charName);
+                    worldBookStartFloor = existingRange.startFloor;
+                    worldBookEndFloor = currentEndFloor;
+                    logDebug_ACU(`角色 ${charName} 已有记录，更新楼层范围: ${worldBookStartFloor}-${worldBookEndFloor}`);
+                } else {
+                    // 新角色：从当前开始到当前结束的范围
+                    worldBookStartFloor = currentStartFloor;
+                    worldBookEndFloor = currentEndFloor;
+                    logDebug_ACU(`角色 ${charName} 为新角色，记录楼层范围: ${worldBookStartFloor}-${worldBookEndFloor}`);
+                }
+
                 // The content to save is the full block in the new custom format
                 const success = await saveDescriptionToLorebook_ACU(
                     charName,
                     fullBlockToSave,
-                    startFloor_0idx,
-                    endFloor_0idx,
+                    worldBookStartFloor,
+                    worldBookEndFloor,
                 );
                 if (success) {
                     processedNames.push(charName);
