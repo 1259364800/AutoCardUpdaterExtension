@@ -2182,6 +2182,7 @@ console.log(
             return false;
         }
 
+        // 定义触发阈值和上下文层数
         const currentThreshold_M = autoUpdateThreshold_ACU;
         const currentOffset_X = autoUpdateOffset_ACU;
         const triggerThreshold = currentThreshold_M + currentOffset_X;
@@ -2765,6 +2766,11 @@ console.log(
 
         await loadAllChatMessages_ACU();
         
+        // 定义触发阈值和上下文层数
+        const currentThreshold_M = autoUpdateThreshold_ACU;
+        const currentOffset_X = autoUpdateOffset_ACU;
+        const triggerThreshold = currentThreshold_M + currentOffset_X;
+
         // 手动更新：获取已总结的最大楼层，然后总结所有未处理的内容
         let maxEndFloorInLorebook = 0;
         try {
