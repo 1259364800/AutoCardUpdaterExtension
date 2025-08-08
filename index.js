@@ -223,7 +223,7 @@ console.log(
 </最高命令>`;
     const DEFAULT_CHAR_CARD_PROMPT_ACU = [
         '<!-- prompt_version: 4.0.4 -->',
-        '您是一个高精度角色信息提取与格式化AI。您的唯一任务是精确遵循指令，阅读聊天记录，并为所有非用户角色生成符合铁律的结构化角色卡。',
+        '您是一个高精度角色信息提取与格式化AI。您的唯一任务是精确遵循指令，阅读聊天记录和历史角色总结，并为所有非用户角色生成符合铁律的结构化角色卡。',
         '',
         '<格式化铁律 (绝对强制)>',
         '1.  **【结构】**：您的输出必须且只能由数个角色卡块组成。每个块以 `[START_CHAR_CARD]` 作为起始标记，并以 `[END_CHAR_CARD]` 作为结束标记。',
@@ -1368,6 +1368,10 @@ console.log(
 
         logDebug_ACU('配置已加载');
         updateUiWithSettings();
+
+        // 加载角色选择设置
+        const alwaysShowCharacterSelection = localStorage.getItem('autoCardUpdater-always-show-character-selection') !== 'false';
+        const defaultSelectAllCharacters = localStorage.getItem('autoCardUpdater-default-select-all-characters') !== 'false';
     }
 
     function updateUiWithSettings() {
@@ -1416,6 +1420,34 @@ console.log(
         $extensionSettingsPanel
             .find('#char-card-viewer-enabled-checkbox')
             .prop('checked', viewerEnabled_ACU);
+        
+        // 添加角色选择设置
+        const settingsHtml = `
+            <div class="setting_item">
+                <span>总是显示角色选择弹窗</span>
+                <div class="SillyTavernSwitch">
+                    <input id="autoCardUpdater-always-show-character-selection" type="checkbox" checked />
+                    <div class="SillyTavernSlider"></div>
+                </div>
+            </div>
+            <div class="setting_item">
+                <span>默认选择所有角色</span>
+                <div class="SillyTavernSwitch">
+                    <input id="autoCardUpdater-default-select-all-characters" type="checkbox" checked />
+                    <div class="SillyTavernSlider"></div>
+                </div>
+            </div>
+        `;
+        
+        // 添加到设置面板
+        $extensionSettingsPanel.find('#autoCardUpdater-api-settings').after(settingsHtml);
+        
+        // 加载角色选择设置
+        const alwaysShowCharacterSelection = localStorage.getItem('autoCardUpdater-always-show-character-selection') !== 'false';
+        const defaultSelectAllCharacters = localStorage.getItem('autoCardUpdater-default-select-all-characters') !== 'false';
+        
+        $extensionSettingsPanel.find('#autoCardUpdater-always-show-character-selection').prop('checked', alwaysShowCharacterSelection);
+        $extensionSettingsPanel.find('#autoCardUpdater-default-select-all-characters').prop('checked', defaultSelectAllCharacters);
     }
 
     // ... 各种 save/clear/reset 函数
@@ -1858,6 +1890,15 @@ console.log(
                 }
             },
         );
+        
+        // 绑定角色选择设置事件
+        $extensionSettingsPanel.find('#autoCardUpdater-always-show-character-selection').on('change', function() {
+            localStorage.setItem('autoCardUpdater-always-show-character-selection', this.checked);
+        });
+        
+        $extensionSettingsPanel.find('#autoCardUpdater-default-select-all-characters').on('change', function() {
+            localStorage.setItem('autoCardUpdater-default-select-all-characters', this.checked);
+        });
     }
 
     async function initializeExtension() {
@@ -2269,7 +2310,7 @@ console.log(
         return false; // <-- 返回false表示未执行更新
     }
 
-    function prepareAIInput_ACU(messages, lorebookContent) {
+    async function prepareAIInput_ACU(messages, lorebookContent, selectedCharacters = []) {
         let chatHistoryText = '最近的聊天记录摘要:\n';
         if (messages && messages.length > 0) {
             chatHistoryText += messages
@@ -2281,7 +2322,44 @@ console.log(
         } else {
             chatHistoryText += '(无聊天记录提供)';
         }
-        return `${chatHistoryText}\n\n请根据以上聊天记录更新角色描述：`;
+        
+        // 添加选定角色的总结信息
+        let historicalContext = '';
+        
+        if (selectedCharacters && selectedCharacters.length > 0) {
+            const characterSummaries = await getSelectedCharacterSummaries_ACU(selectedCharacters);
+            if (characterSummaries.length > 0) {
+                historicalContext = '\n\n<历史角色总结信息>\n';
+                characterSummaries.forEach(summary => {
+                    historicalContext += `角色: ${summary.characterName}\n`;
+                    historicalContext += `总结内容:\n${summary.content}\n`;
+                    historicalContext += '---\n';
+                });
+                historicalContext += '</历史角色总结信息>\n';
+            }
+        }
+
+            // 添加分析指导
+    const analysisGuidance = `
+        <分析指导>
+        请基于以上聊天记录和历史总结信息，进行以下分析：
+        1. **信息对比**：将新对话中的信息与历史总结进行对比
+        2. **变化识别**：识别角色在性格、关系、目标等方面的变化
+        3. **细节挖掘**：提取对话中的微妙细节和深层信息
+        4. **一致性检查**：确保新信息与历史信息的一致性
+        5. **重要性评估**：评估信息对角色塑造的重要性
+        6. **发展追踪**：记录角色的发展轨迹
+        请特别注意：
+        - 角色的情绪变化和表达方式
+        - 角色对特定话题的反应模式
+        - 角色在不同情境下的行为差异
+        - 角色与他人的互动方式和态度变化
+        - 角色的内在矛盾和内心挣扎
+        - 角色的价值观和信念的体现
+        </分析指导>
+        `;
+        
+        return `${chatHistoryText}${historicalContext}${analysisGuidance}\n\n请根据以上信息更新角色描述：`;
     }
 
     async function callCustomOpenAI_ACU(systemMsgContent, userPromptContent) {
@@ -2528,11 +2606,64 @@ console.log(
         } else {
             statusUpdater('正在生成角色卡描述...');
         }
+        
+        // 根据设置决定是否显示角色选择弹窗
+        let selectedCharacters = [];
+        const alwaysShowCharacterSelection = localStorage.getItem('autoCardUpdater-always-show-character-selection') !== 'false';
+        
+        if (alwaysShowCharacterSelection) {
+            // 显示角色选择弹窗
+            statusUpdater('选择要包含的角色总结...');
+            selectedCharacters = await showCharacterSelectionDialog_ACU();
+            
+            if (selectedCharacters.length > 0) {
+                showToastr_ACU('info', `已选择 ${selectedCharacters.length} 个角色的历史总结。`);
+            } else {
+                showToastr_ACU('info', '未选择任何角色历史总结。');
+            }
+        } else {
+            // 自动选择所有角色
+            const defaultSelectAll = localStorage.getItem('autoCardUpdater-default-select-all-characters') !== 'false';
+            if (defaultSelectAll) {
+                const allSummaries = await getAllCharacterSummaries_ACU();
+                // 按角色名称分组
+                const characterGroups = {};
+                allSummaries.forEach(summary => {
+                    if (!characterGroups[summary.characterName]) {
+                        characterGroups[summary.characterName] = [];
+                    }
+                    characterGroups[summary.characterName].push(summary);
+                });
+                
+                // 为每个角色选择最新的总结
+                Object.entries(characterGroups).forEach(([characterName, summaries]) => {
+                    const latestSummary = summaries.sort((a, b) => {
+                        const aFloor = parseInt(a.comment.match(/-(\d+)-(\d+)$/)[2], 10);
+                        const bFloor = parseInt(b.comment.match(/-(\d+)-(\d+)$/)[2], 10);
+                        return bFloor - aFloor;
+                    })[0];
+                    
+                    selectedCharacters.push({
+                        characterName: characterName,
+                        uid: latestSummary.uid
+                    });
+                });
+                
+                if (selectedCharacters.length > 0) {
+                    showToastr_ACU('info', `自动选择了 ${selectedCharacters.length} 个角色的历史总结。`);
+                }
+            }
+        }
 
         try {
+            // 使用增强的输入准备函数，传入选定的角色
+            statusUpdater('准备AI输入...');
+            const aiInput = await prepareAIInput_ACU(messagesToUse, '', selectedCharacters);
+            
+            statusUpdater('调用AI生成总结...');
             let aiResponse = await callCustomOpenAI_ACU(
                 null,
-                prepareAIInput_ACU(messagesToUse, ''),
+                aiInput
             );
 
             if (!aiResponse) throw new Error('AI未能生成有效描述。');
@@ -2608,17 +2739,14 @@ console.log(
                 ]);
                 statusUpdater(`已为 ${processedNames.length} 个角色更新描述！`);
             } else {
-                throw new Error(
-                    'AI生成了内容，但未能成功提取任何有效的角色卡。',
-                );
+                statusUpdater('未能成功更新任何角色描述。');
             }
 
-            updateCardUpdateStatusDisplay_ACU();
             return allSucceeded;
         } catch (error) {
-            logError_ACU('角色卡更新过程出错:', error);
+            logError_ACU('角色卡更新失败:', error);
+            statusUpdater(`更新失败: ${error.message}`);
             showToastr_ACU('error', `更新失败: ${error.message}`);
-            statusUpdater('错误：更新失败。');
             return false;
         }
     }
@@ -2666,11 +2794,6 @@ console.log(
         // 手动更新：循环处理，直到不满足触发条件
         let totalUpdates = 0;
         let currentMaxEndFloor = maxEndFloorInLorebook;
-        
-        // 修复：在手动更新函数中定义这些变量
-        const currentThreshold_M = autoUpdateThreshold_ACU;
-        const currentOffset_X = autoUpdateOffset_ACU;
-        const triggerThreshold = currentThreshold_M + currentOffset_X;
         
         while (true) {
             // 计算当前未更新的消息数
@@ -2848,4 +2971,215 @@ console.log(
     }
 
     runWhenReady();
+
+    // 从评论中提取角色名
+    function extractCharacterNameFromComment_ACU(comment) {
+        const match = comment.match(/角色卡更新-.*?-(.*?)-\d+-\d+$/);
+        return match ? match[1] : '未知角色';
+    }
+
+    // 获取所有角色总结
+    async function getAllCharacterSummaries_ACU() {
+        const characterSummaries = [];
+        
+        try {
+            const context = SillyTavern_API_ACU.getContext();
+            if (!context || !context.characterId) {
+                return characterSummaries;
+            }
+            
+            const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+            if (!primaryLorebookName) {
+                return characterSummaries;
+            }
+            
+            const entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName);
+            const chatIdentifier = currentChatFileIdentifier_ACU || '未知聊天';
+            const entryPrefix = `角色卡更新-${chatIdentifier}-`;
+            
+            // 获取当前聊天中的所有角色总结（排除人物总览）
+            const relevantEntries = entries.filter(entry => 
+                entry.comment && 
+                entry.comment.startsWith(entryPrefix) && 
+                !entry.comment.endsWith('人物总揽') &&
+                entry.comment.match(/-(\d+)-(\d+)$/)
+            );
+            
+            relevantEntries.forEach(entry => {
+                const characterName = extractCharacterNameFromComment_ACU(entry.comment);
+                characterSummaries.push({
+                    characterName: characterName,
+                    content: entry.content,
+                    comment: entry.comment,
+                    uid: entry.uid
+                });
+            });
+            
+        } catch (error) {
+            logError_ACU('获取角色总结失败:', error);
+        }
+        
+        return characterSummaries;
+    }
+
+    // 获取选定角色的总结
+    async function getSelectedCharacterSummaries_ACU(selectedCharacters) {
+        const characterSummaries = [];
+        
+        try {
+            const context = SillyTavern_API_ACU.getContext();
+            if (!context || !context.characterId) {
+                return characterSummaries;
+            }
+            
+            const primaryLorebookName = await TavernHelper_API_ACU.getCurrentCharPrimaryLorebook();
+            if (!primaryLorebookName) {
+                return characterSummaries;
+            }
+            
+            const entries = await TavernHelper_API_ACU.getLorebookEntries(primaryLorebookName);
+            
+            // 获取选定的角色总结
+            for (const selected of selectedCharacters) {
+                const entry = entries.find(e => e.uid === selected.uid);
+                if (entry) {
+                    const match = entry.comment.match(/-(\d+)-(\d+)$/);
+                    if (match) {
+                        const startFloor = match[1];
+                        const endFloor = match[2];
+                        
+                        characterSummaries.push({
+                            characterName: selected.characterName,
+                            content: entry.content,
+                            floorRange: `${startFloor}-${endFloor}`,
+                            uid: entry.uid
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            logError_ACU('获取选定角色总结失败:', error);
+        }
+        
+        return characterSummaries;
+    }
+
+    // 创建角色选择弹窗
+    async function showCharacterSelectionDialog_ACU() {
+        // 获取所有已有角色总结
+        const allCharacterSummaries = await getAllCharacterSummaries_ACU();
+        
+        if (allCharacterSummaries.length === 0) {
+            showToastr_ACU('info', '当前聊天中没有找到任何角色总结。');
+            return [];
+        }
+        
+        // 按角色名称分组
+        const characterGroups = {};
+        allCharacterSummaries.forEach(summary => {
+            if (!characterGroups[summary.characterName]) {
+                characterGroups[summary.characterName] = [];
+            }
+            characterGroups[summary.characterName].push(summary);
+        });
+        
+        // 创建弹窗HTML
+        let dialogHtml = `
+            <div class="character-selection-dialog" style="background-color: #1f1f1f; color: #fff; padding: 20px; border-radius: 10px; max-width: 600px; margin: 0 auto;">
+                <h3 style="margin-top: 0; text-align: center;">选择要包含的角色总结</h3>
+                <p style="text-align: center; margin-bottom: 20px;">选择要在AI总结中包含的角色信息</p>
+                
+                <div class="character-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+        `;
+        
+        // 为每个角色创建选择项
+        Object.entries(characterGroups).forEach(([characterName, summaries]) => {
+            const latestSummary = summaries.sort((a, b) => {
+                const aFloor = parseInt(a.comment.match(/-(\d+)-(\d+)$/)[2], 10);
+                const bFloor = parseInt(b.comment.match(/-(\d+)-(\d+)$/)[2], 10);
+                return bFloor - aFloor;
+            })[0];
+            
+            const floorRange = latestSummary.comment.match(/-(\d+)-(\d+)$/);
+            const startFloor = floorRange[1];
+            const endFloor = floorRange[2];
+            
+            dialogHtml += `
+                <div class="character-item" style="margin-bottom: 10px; padding: 10px; background-color: #2a2a2a; border-radius: 5px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" class="character-checkbox" data-character="${escapeHtml_ACU(characterName)}" data-uid="${latestSummary.uid}" checked style="margin-right: 10px;">
+                        <div>
+                            <div style="font-weight: bold;">${escapeHtml_ACU(characterName)}</div>
+                            <div style="font-size: 0.9em; opacity: 0.8;">最新总结：楼层 ${startFloor}-${endFloor}</div>
+                        </div>
+                    </label>
+                </div>
+            `;
+        });
+        
+        dialogHtml += `
+                </div>
+                
+                <div class="dialog-actions" style="display: flex; justify-content: space-between;">
+                    <button id="select-all-characters" class="menu_button">全选</button>
+                    <button id="deselect-all-characters" class="menu_button">取消全选</button>
+                    <div style="flex-grow: 1;"></div>
+                    <button id="cancel-character-selection" class="menu_button">取消</button>
+                    <button id="confirm-character-selection" class="menu_button primary">确认</button>
+                </div>
+            </div>
+        `;
+        
+        // 创建弹窗
+        const $dialog = jQuery_API_ACU(dialogHtml);
+        jQuery_API_ACU('body').append($dialog);
+        
+        // 添加遮罩层
+        const $overlay = jQuery_API_ACU('<div class="character-selection-overlay"></div>').css({
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 9998,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+        });
+        
+        $dialog.wrap($overlay);
+        
+        // 处理按钮事件
+        return new Promise((resolve) => {
+            // 全选按钮
+            jQuery_API_ACU('#select-all-characters').on('click', function() {
+                jQuery_API_ACU('.character-checkbox').prop('checked', true);
+            });
+            
+            // 取消全选按钮
+            jQuery_API_ACU('#deselect-all-characters').on('click', function() {
+                jQuery_API_ACU('.character-checkbox').prop('checked', false);
+            });
+            
+            // 取消按钮
+            jQuery_API_ACU('#cancel-character-selection').on('click', function() {
+                $dialog.parent().remove();
+                resolve([]);
+            });
+            
+            // 确认按钮
+            jQuery_API_ACU('#confirm-character-selection').on('click', function() {
+                const selectedCharacters = [];
+                jQuery_API_ACU('.character-checkbox:checked').each(function() {
+                    const characterName = jQuery_API_ACU(this).data('character');
+                    const uid = jQuery_API_ACU(this).data('uid');
+                    selectedCharacters.push({ characterName, uid });
+                });
+                
+                $dialog.parent().remove();
+                resolve(selectedCharacters);
+            });
+        });
+    }
 })();
