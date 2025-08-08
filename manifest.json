@@ -1,6 +1,6 @@
 {
     "name": "AutoCardUpdaterExtension",
-    "version": "4.1.14",
+    "version": "4.1.15",
     "display_name": "角色卡自动更新-新特性",
     "description": "通过AI自动更新角色卡，并提供一个编辑器来查看和修改它们。",
     "author": "1830488003",

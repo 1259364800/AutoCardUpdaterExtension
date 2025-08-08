@@ -2531,7 +2531,7 @@ console.log(
             /[^a-zA-Z0-9\u4e00-\u9fa5_-]/g,
             '_',
         );
-        const newComment = `角色卡更新-${chatIdentifier}-${safeCharName}-${startFloor + 1}-${endFloor + 1}`;
+        const newComment = `角色卡更新-${chatIdentifier}-${safeCharName}-${startFloor}-${endFloor}`;
         const oldPrefix = `角色卡更新-${chatIdentifier}-${safeCharName}-`;
 
         try {
