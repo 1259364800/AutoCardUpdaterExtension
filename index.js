@@ -3228,17 +3228,14 @@ console.log(
         // 添加遮罩层，修改定位方式
         const $overlay = jQuery_API_ACU('<div class="character-selection-overlay"></div>').css({
             position: 'fixed',
-            top: 0,
             left: 0,
             right: 0,
             bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.7)',
             zIndex: 9998,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             padding: '20px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            top: '50%',
         });
         
         $dialog.wrap($overlay);
