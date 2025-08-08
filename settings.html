@@ -32,60 +32,68 @@
 
             <!-- API 设置 -->
             <div class="inline-drawer">
-                <div
-                    class="inline-drawer-toggle inline-drawer-header sub-header"
-                >
+                <div class="inline-drawer-toggle inline-drawer-header sub-header">
                     <b>API设置</b>
-                    <div
-                        class="inline-drawer-icon fa-solid fa-circle-chevron-down down"
-                    ></div>
+                    <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
                 </div>
                 <div class="inline-drawer-content">
                     <div class="description_text">
                         <b>安全提示:</b> API密钥将保存在浏览器本地存储中。
                     </div>
+                    
+                    <!-- 配置选择器 -->
+                    <div class="setting_item">
+                        <label for="autoCardUpdater-config-selector">选择配置:</label>
+                        <div class="auto_card_updater_input_with_button">
+                            <select id="autoCardUpdater-config-selector" class="text_pole">
+                                <option value="">请选择配置</option>
+                            </select>
+                            <button id="autoCardUpdater-add-config" class="menu_button">
+                                <i class="fa-solid fa-plus"></i> 新增
+                            </button>
+                            <button id="autoCardUpdater-delete-config" class="menu_button">
+                                <i class="fa-solid fa-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 配置名称 -->
+                    <div class="setting_item">
+                        <label for="autoCardUpdater-config-name">配置名称:</label>
+                        <input type="text" id="autoCardUpdater-config-name" class="text_pole" placeholder="例如：OpenAI GPT-4" />
+                    </div>
+                    
+                    <!-- API配置表单 -->
                     <label for="autoCardUpdater-api-url">API基础URL:</label>
-                    <input
-                        type="text"
-                        id="autoCardUpdater-api-url"
-                        class="text_pole"
-                    />
+                    <input type="text" id="autoCardUpdater-api-url" class="text_pole" />
+                    
                     <label for="autoCardUpdater-api-key">API密钥(可选):</label>
-                    <input
-                        type="password"
-                        id="autoCardUpdater-api-key"
-                        class="text_pole"
-                    />
+                    <input type="password" id="autoCardUpdater-api-key" class="text_pole" />
+                    
                     <label for="autoCardUpdater-api-model">选择模型:</label>
                     <div class="auto_card_updater_input_with_button">
-                        <select
-                            id="autoCardUpdater-api-model"
-                            class="text_pole"
-                        ></select>
-                        <button
-                            id="autoCardUpdater-load-models"
-                            class="menu_button"
-                        >
+                        <select id="autoCardUpdater-api-model" class="text_pole"></select>
+                        <button id="autoCardUpdater-load-models" class="menu_button">
                             <i class="fa-solid fa-cloud-download"></i> 加载模型
                         </button>
                     </div>
-                    <div
-                        id="autoCardUpdater-api-status"
-                        class="description_text"
-                    ></div>
+                    
+                    <div id="autoCardUpdater-api-status" class="description_text"></div>
+                    
                     <div class="button-group">
-                        <button
-                            id="autoCardUpdater-save-config"
-                            class="menu_button wide_button"
-                        >
-                            <i class="fa-solid fa-floppy-disk"></i> 保存API
+                        <button id="autoCardUpdater-save-config" class="menu_button wide_button">
+                            <i class="fa-solid fa-floppy-disk"></i> 保存配置
                         </button>
-                        <button
-                            id="autoCardUpdater-clear-config"
-                            class="menu_button wide_button"
-                        >
-                            <i class="fa-solid fa-trash-can"></i> 清除API
+                        <button id="autoCardUpdater-test-config" class="menu_button wide_button">
+                            <i class="fa-solid fa-vial"></i> 测试连接
                         </button>
+                    </div>
+                    
+                    <!-- 配置列表 -->
+                    <hr />
+                    <div class="setting_item">
+                        <span>已保存的配置:</span>
+                        <div id="autoCardUpdater-config-list" class="description_text" style="margin-top: 10px;"></div>
                     </div>
                 </div>
             </div>

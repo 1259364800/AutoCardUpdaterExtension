@@ -345,7 +345,344 @@ console.log(
     let $extensionSettingsPanel; // 指向我们扩展根元素的jQuery对象
 
     // --- 状态变量 ---
-    let customApiConfig_ACU = { url: '', apiKey: '', model: '' };
+    let customApiConfigs_ACU = {}; // 改为对象，支持多配置
+    let currentConfigId_ACU = null; // 当前选中的配置ID
+    let customApiConfig_ACU = { url: '', apiKey: '', model: '' }; // 当前使用的配置（保持兼容性）
+
+    // 生成唯一配置ID
+    function generateConfigId_ACU() {
+        return 'config_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // 保存配置到本地存储
+    function saveApiConfigsToStorage_ACU() {
+        try {
+            localStorage.setItem('autoCardUpdater-api-configs', JSON.stringify(customApiConfigs_ACU));
+            localStorage.setItem('autoCardUpdater-current-config-id', currentConfigId_ACU || '');
+            logDebug_ACU('API configurations saved to storage');
+                } catch (error) {
+            logError_ACU('Failed to save API configurations:', error);
+        }
+    }
+
+    // 从本地存储加载配置
+    function loadApiConfigsFromStorage_ACU() {
+        try {
+            const savedConfigs = localStorage.getItem('autoCardUpdater-api-configs');
+            if (savedConfigs) {
+                customApiConfigs_ACU = JSON.parse(savedConfigs);
+            }
+            
+            const savedCurrentId = localStorage.getItem('autoCardUpdater-current-config-id');
+            if (savedCurrentId && customApiConfigs_ACU[savedCurrentId]) {
+                currentConfigId_ACU = savedCurrentId;
+                customApiConfig_ACU = { ...customApiConfigs_ACU[savedCurrentId] };
+            }
+            
+            logDebug_ACU('API configurations loaded from storage');
+        } catch (error) {
+            logError_ACU('Failed to load API configurations:', error);
+            customApiConfigs_ACU = {};
+            currentConfigId_ACU = null;
+        }
+    }
+
+    // 更新配置选择器
+    function updateConfigSelector_ACU() {
+        const $selector = jQuery_API_ACU('#autoCardUpdater-config-selector');
+        const $nameInput = jQuery_API_ACU('#autoCardUpdater-config-name');
+        const $urlInput = jQuery_API_ACU('#autoCardUpdater-api-url');
+        const $keyInput = jQuery_API_ACU('#autoCardUpdater-api-key');
+        const $modelSelect = jQuery_API_ACU('#autoCardUpdater-api-model');
+        const $deleteBtn = jQuery_API_ACU('#autoCardUpdater-delete-config');
+        
+        // 清空选择器
+        $selector.empty().append('<option value="">请选择配置</option>');
+        
+        // 添加配置选项
+        Object.entries(customApiConfigs_ACU).forEach(([id, config]) => {
+            const selected = id === currentConfigId_ACU ? 'selected' : '';
+            $selector.append(`<option value="${id}" ${selected}>${config.name || '未命名配置'}</option>`);
+        });
+        
+        // 更新删除按钮状态
+        $deleteBtn.prop('disabled', !currentConfigId_ACU);
+        
+        // 如果当前有选中的配置，填充表单
+        if (currentConfigId_ACU && customApiConfigs_ACU[currentConfigId_ACU]) {
+            const config = customApiConfigs_ACU[currentConfigId_ACU];
+            $nameInput.val(config.name || '');
+            $urlInput.val(config.url || '');
+            $keyInput.val(config.apiKey || '');
+            $modelSelect.val(config.model || '');
+        } else {
+            // 清空表单
+            $nameInput.val('');
+            $urlInput.val('');
+            $keyInput.val('');
+            $modelSelect.val('');
+        }
+    }
+
+    // 更新配置列表显示
+    function updateConfigList_ACU() {
+        const $list = jQuery_API_ACU('#autoCardUpdater-config-list');
+        $list.empty();
+        
+        if (Object.keys(customApiConfigs_ACU).length === 0) {
+            $list.html('<em>暂无保存的配置</em>');
+            return;
+        }
+        
+        Object.entries(customApiConfigs_ACU).forEach(([id, config]) => {
+            const isCurrent = id === currentConfigId_ACU;
+            const statusText = isCurrent ? ' (当前使用)' : '';
+            const statusClass = isCurrent ? 'style="color: #4CAF50; font-weight: bold;"' : '';
+            
+            $list.append(`
+                <div style="margin-bottom: 8px; padding: 8px; background-color: #2a2a2a; border-radius: 4px;">
+                    <div ${statusClass}>${config.name || '未命名配置'}${statusText}</div>
+                    <div style="font-size: 0.9em; opacity: 0.8;">URL: ${config.url || '未设置'}</div>
+                    <div style="font-size: 0.9em; opacity: 0.8;">模型: ${config.model || '未设置'}</div>
+                </div>
+            `);
+        });
+    }
+
+    // 更新API状态显示
+    function updateApiStatusDisplay_ACU() {
+        const $status = jQuery_API_ACU('#autoCardUpdater-api-status');
+        
+        if (!customApiConfig_ACU.url) {
+            $status.html('<i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i> 未配置API');
+            return;
+        }
+
+        if (!customApiConfig_ACU.model) {
+            $status.html('<i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i> 未选择模型');
+            return;
+        }
+        
+        const configName = currentConfigId_ACU && customApiConfigs_ACU[currentConfigId_ACU] 
+            ? customApiConfigs_ACU[currentConfigId_ACU].name 
+            : '未命名配置';
+        
+        $status.html(`<i class="fas fa-check-circle" style="color: #4CAF50;"></i> 当前配置: ${configName}`);
+    }
+
+    // 保存当前配置
+    function saveApiConfig_ACU() {
+        const name = jQuery_API_ACU('#autoCardUpdater-config-name').val().trim();
+        const url = jQuery_API_ACU('#autoCardUpdater-api-url').val().trim();
+        const apiKey = jQuery_API_ACU('#autoCardUpdater-api-key').val().trim();
+        const model = jQuery_API_ACU('#autoCardUpdater-api-model').val();
+
+        if (!name) {
+            showToastr_ACU('warning', '请输入配置名称');
+            return;
+        }
+
+        if (!url) {
+            showToastr_ACU('warning', '请输入API URL');
+            return;
+        }
+
+        // 如果没有当前配置ID，创建新配置
+        if (!currentConfigId_ACU) {
+            currentConfigId_ACU = generateConfigId_ACU();
+        }
+
+        // 保存配置
+        customApiConfigs_ACU[currentConfigId_ACU] = {
+            name: name,
+            url: url,
+            apiKey: apiKey,
+            model: model
+        };
+
+        // 更新当前使用的配置
+        customApiConfig_ACU = { url, apiKey, model };
+
+        // 保存到本地存储
+        saveApiConfigsToStorage_ACU();
+
+        // 更新UI
+        updateConfigSelector_ACU();
+        updateConfigList_ACU();
+        updateApiStatusDisplay_ACU();
+
+        showToastr_ACU('success', `配置 "${name}" 已保存`);
+    }
+
+    // 删除当前配置
+    function deleteApiConfig_ACU() {
+        if (!currentConfigId_ACU) {
+            showToastr_ACU('warning', '请先选择要删除的配置');
+            return;
+        }
+
+        const configName = customApiConfigs_ACU[currentConfigId_ACU]?.name || '未命名配置';
+        
+        if (confirm(`确定要删除配置 "${configName}" 吗？`)) {
+            delete customApiConfigs_ACU[currentConfigId_ACU];
+            
+            // 如果删除的是当前配置，清空当前配置
+            if (Object.keys(customApiConfigs_ACU).length === 0) {
+                currentConfigId_ACU = null;
+                customApiConfig_ACU = { url: '', apiKey: '', model: '' };
+            } else {
+                // 选择第一个可用配置作为当前配置
+                const firstConfigId = Object.keys(customApiConfigs_ACU)[0];
+                currentConfigId_ACU = firstConfigId;
+                customApiConfig_ACU = { ...customApiConfigs_ACU[firstConfigId] };
+            }
+
+            // 保存到本地存储
+            saveApiConfigsToStorage_ACU();
+
+            // 更新UI
+            updateConfigSelector_ACU();
+            updateConfigList_ACU();
+            updateApiStatusDisplay_ACU();
+
+            showToastr_ACU('success', `配置 "${configName}" 已删除`);
+        }
+    }
+
+    // 添加新配置
+    function addNewConfig_ACU() {
+        // 清空当前选择
+        currentConfigId_ACU = null;
+        
+        // 清空表单
+        jQuery_API_ACU('#autoCardUpdater-config-name').val('');
+        jQuery_API_ACU('#autoCardUpdater-api-url').val('');
+        jQuery_API_ACU('#autoCardUpdater-api-key').val('');
+        jQuery_API_ACU('#autoCardUpdater-api-model').val('');
+        
+        // 清空当前使用的配置
+        customApiConfig_ACU = { url: '', apiKey: '', model: '' };
+        
+        // 更新UI
+        updateConfigSelector_ACU();
+        updateApiStatusDisplay_ACU();
+        updateConfigList_ACU();
+        
+        showToastr_ACU('info', '请填写新配置信息');
+    }
+
+    // 测试配置连接
+    function testApiConfig_ACU() {
+        const url = jQuery_API_ACU('#autoCardUpdater-api-url').val().trim();
+        const apiKey = jQuery_API_ACU('#autoCardUpdater-api-key').val().trim();
+        const model = jQuery_API_ACU('#autoCardUpdater-api-model').val();
+
+        if (!url) {
+            showToastr_ACU('warning', '请输入API URL');
+            return;
+        }
+
+        if (!model) {
+            showToastr_ACU('warning', '请选择模型');
+            return;
+        }
+
+        const $status = jQuery_API_ACU('#autoCardUpdater-api-status');
+        $status.html('<i class="fas fa-spinner fa-spin"></i> 正在测试连接...');
+
+        // 构建测试请求
+        let fullApiUrl = url;
+        if (!fullApiUrl.endsWith('/')) {
+            fullApiUrl += '/';
+        }
+        if (fullApiUrl.includes('generativelanguage.googleapis.com')) {
+            if (!fullApiUrl.endsWith('chat/completions'))
+                fullApiUrl += 'chat/completions';
+        } else if (fullApiUrl.endsWith('/v1/')) {
+            fullApiUrl += 'chat/completions';
+        } else if (!fullApiUrl.includes('/chat/completions')) {
+            fullApiUrl += 'v1/chat/completions';
+        }
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+
+        const testBody = JSON.stringify({
+            model: model,
+            messages: [
+                { role: 'user', content: 'Hello' }
+            ],
+            max_tokens: 10
+        });
+
+        fetch(fullApiUrl, {
+            method: 'POST',
+            headers: headers,
+            body: testBody
+        })
+        .then(response => {
+            if (response.ok) {
+                $status.html('<i class="fas fa-check-circle" style="color: #4CAF50;"></i> 连接测试成功');
+                showToastr_ACU('success', 'API连接测试成功');
+            } else {
+                return response.text().then(errorText => {
+                    $status.html('<i class="fas fa-times-circle" style="color: #f44336;"></i> 连接测试失败');
+                    showToastr_ACU('error', `连接测试失败: ${response.status} ${errorText}`);
+                });
+            }
+        })
+        .catch(error => {
+            $status.html('<i class="fas fa-times-circle" style="color: #f44336;"></i> 连接测试失败');
+            showToastr_ACU('error', `连接测试失败: ${error.message}`);
+        });
+    }
+
+    // 配置选择器变化事件
+    function onConfigSelectorChange_ACU() {
+        const selectedId = jQuery_API_ACU('#autoCardUpdater-config-selector').val();
+        
+        if (selectedId && customApiConfigs_ACU[selectedId]) {
+            currentConfigId_ACU = selectedId;
+            customApiConfig_ACU = { ...customApiConfigs_ACU[selectedId] };
+            
+            // 填充表单
+            const config = customApiConfigs_ACU[selectedId];
+            jQuery_API_ACU('#autoCardUpdater-config-name').val(config.name || '');
+            jQuery_API_ACU('#autoCardUpdater-api-url').val(config.url || '');
+            jQuery_API_ACU('#autoCardUpdater-api-key').val(config.apiKey || '');
+            jQuery_API_ACU('#autoCardUpdater-api-model').val(config.model || '');
+            
+            // 更新删除按钮状态
+            jQuery_API_ACU('#autoCardUpdater-delete-config').prop('disabled', false);
+            
+            // 更新状态显示
+            updateApiStatusDisplay_ACU();
+            updateConfigList_ACU();
+            
+            showToastr_ACU('info', `已切换到配置: ${config.name || '未命名配置'}`);
+        } else {
+            // 清空选择
+            currentConfigId_ACU = null;
+            customApiConfig_ACU = { url: '', apiKey: '', model: '' };
+            
+            // 清空表单
+            jQuery_API_ACU('#autoCardUpdater-config-name').val('');
+            jQuery_API_ACU('#autoCardUpdater-api-url').val('');
+            jQuery_API_ACU('#autoCardUpdater-api-key').val('');
+            jQuery_API_ACU('#autoCardUpdater-api-model').val('');
+            
+            // 更新删除按钮状态
+            jQuery_API_ACU('#autoCardUpdater-delete-config').prop('disabled', true);
+            
+            // 更新状态显示
+            updateApiStatusDisplay_ACU();
+            updateConfigList_ACU();
+        }
+    }
+
+    // 在状态变量部分添加多配置支持（在现有变量定义后添加）
     let currentBreakArmorPrompt_ACU = DEFAULT_BREAK_ARMOR_PROMPT_ACU;
     let currentCharCardPrompt_ACU = DEFAULT_CHAR_CARD_PROMPT_ACU;
     let autoUpdateThreshold_ACU = DEFAULT_AUTO_UPDATE_THRESHOLD_ACU;
@@ -1454,33 +1791,46 @@ console.log(
 
     // ... 各种 save/clear/reset 函数
     function saveApiConfig_ACU() {
-        customApiConfig_ACU.url = $extensionSettingsPanel
-            .find('#autoCardUpdater-api-url')
-            .val()
-            .trim();
-        customApiConfig_ACU.apiKey = $extensionSettingsPanel
-            .find('#autoCardUpdater-api-key')
-            .val();
-        customApiConfig_ACU.model = $extensionSettingsPanel
-            .find('#autoCardUpdater-api-model')
-            .val();
+        const name = jQuery_API_ACU('#autoCardUpdater-config-name').val().trim();
+        const url = jQuery_API_ACU('#autoCardUpdater-api-url').val().trim();
+        const apiKey = jQuery_API_ACU('#autoCardUpdater-api-key').val().trim();
+        const model = jQuery_API_ACU('#autoCardUpdater-api-model').val();
 
-        if (!customApiConfig_ACU.url) {
-            showToastr_ACU('warning', 'API URL 不能为空。');
-            updateApiStatusDisplay_ACU();
+        if (!name) {
+            showToastr_ACU('warning', '请输入配置名称');
             return;
         }
-        try {
-            localStorage.setItem(
-                STORAGE_KEY_API_CONFIG_ACU,
-                JSON.stringify(customApiConfig_ACU),
-            );
-            showToastr_ACU('success', 'API配置已保存！');
-            updateApiStatusDisplay_ACU();
-        } catch (error) {
-            logError_ACU('保存API配置失败:', error);
-            showToastr_ACU('error', '保存API配置时发生浏览器存储错误。');
+
+        if (!url) {
+            showToastr_ACU('warning', '请输入API URL');
+            return;
         }
+
+        // 如果没有当前配置ID，创建新配置
+        if (!currentConfigId_ACU) {
+            currentConfigId_ACU = generateConfigId_ACU();
+        }
+
+        // 保存配置
+        customApiConfigs_ACU[currentConfigId_ACU] = {
+            name: name,
+            url: url,
+            apiKey: apiKey,
+            model: model
+        };
+
+        // 更新当前使用的配置
+        customApiConfig_ACU = { url, apiKey, model };
+
+        // 保存到本地存储
+        saveApiConfigsToStorage_ACU();
+
+        // 更新UI
+        updateConfigSelector_ACU();
+        updateConfigList_ACU();
+        updateApiStatusDisplay_ACU();
+
+        showToastr_ACU('success', `配置 "${name}" 已保存`);
     }
 
     function clearApiConfig_ACU() {
@@ -1614,102 +1964,153 @@ console.log(
     // ... (此处将包含所有核心业务逻辑函数，如 fetchModelsAndConnect_ACU, callCustomOpenAI_ACU, proceedWithCardUpdate_ACU 等)
     // 它们基本保持不变，因为它们不直接与UI强耦合
     async function fetchModelsAndConnect_ACU() {
-        const apiUrl = $extensionSettingsPanel
-            .find('#autoCardUpdater-api-url')
-            .val()
-            .trim();
-        const apiKey = $extensionSettingsPanel
-            .find('#autoCardUpdater-api-key')
-            .val();
-        const $modelSelect = $extensionSettingsPanel.find(
-            '#autoCardUpdater-api-model',
-        );
-        const $apiStatus = $extensionSettingsPanel.find(
-            '#autoCardUpdater-api-status',
-        );
+        const url = jQuery_API_ACU('#autoCardUpdater-api-url').val().trim();
+        const apiKey = jQuery_API_ACU('#autoCardUpdater-api-key').val().trim();
 
-        if (!apiUrl) {
-            showToastr_ACU('warning', '请输入API基础URL。');
-            $apiStatus.text('状态:请输入API基础URL').css('color', 'orange');
+        if (!url) {
+            showToastr_ACU('warning', '请输入API URL');
             return;
         }
 
-        // Enhanced URL construction logic
-        let modelsUrl = apiUrl;
-        if (!modelsUrl.endsWith('/')) {
-            modelsUrl += '/';
+        const $modelSelect = jQuery_API_ACU('#autoCardUpdater-api-model');
+        const $status = jQuery_API_ACU('#autoCardUpdater-api-status');
+        
+        $status.html('<i class="fas fa-spinner fa-spin"></i> 正在获取模型列表...');
+        $modelSelect.prop('disabled', true);
+
+        // 构建API URL
+        let fullApiUrl = url;
+        if (!fullApiUrl.endsWith('/')) {
+            fullApiUrl += '/';
         }
-        if (modelsUrl.includes('generativelanguage.googleapis.com')) {
-            if (!modelsUrl.endsWith('models')) modelsUrl += 'models';
-        } else if (modelsUrl.endsWith('/v1/')) {
-            modelsUrl += 'models';
-        } else if (!modelsUrl.endsWith('models')) {
-            modelsUrl += 'v1/models';
+        
+        // 根据不同的API提供商调整URL
+        if (fullApiUrl.includes('generativelanguage.googleapis.com')) {
+            if (!fullApiUrl.endsWith('models'))
+                fullApiUrl += 'models';
+        } else if (fullApiUrl.endsWith('/v1/')) {
+            fullApiUrl += 'models';
+        } else if (!fullApiUrl.includes('/models')) {
+            fullApiUrl += 'v1/models';
         }
 
-        $apiStatus.text('状态: 正在加载模型列表...').css('color', '#61afef');
-        showToastr_ACU('info', '正在从 ' + modelsUrl + ' 加载模型列表...');
-        try {
-            const headers = { 'Content-Type': 'application/json' };
-            if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+        }
 
-            // Reverted to direct fetch as per user feedback
-            const response = await fetch(modelsUrl, {
-                method: 'GET',
-                headers: headers,
+        fetch(fullApiUrl, {
+            method: 'GET',
+            headers: headers
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(errorText => {
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            // 清空模型选择器
+            $modelSelect.empty().append('<option value="">请选择模型</option>');
+            
+            // 解析模型列表
+            let models = [];
+            if (data.data && Array.isArray(data.data)) {
+                // OpenAI格式
+                models = data.data.map(model => ({
+                    id: model.id,
+                    name: model.id
+                }));
+            } else if (data.models && Array.isArray(data.models)) {
+                // 其他格式
+                models = data.models.map(model => ({
+                    id: model.id || model.name,
+                    name: model.id || model.name
+                }));
+            } else if (Array.isArray(data)) {
+                // 直接是数组格式
+                models = data.map(model => ({
+                    id: model.id || model.name,
+                    name: model.id || model.name
+                }));
+            }
+
+            // 过滤和排序模型
+            const filteredModels = models
+                .filter(model => {
+                    const modelName = model.name.toLowerCase();
+                    // 过滤掉一些不需要的模型
+                    return !modelName.includes('embedding') && 
+                           !modelName.includes('whisper') && 
+                           !modelName.includes('dall-e') &&
+                           !modelName.includes('tts');
+                })
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            // 添加模型选项
+            filteredModels.forEach(model => {
+                $modelSelect.append(`<option value="${model.id}">${model.name}</option>`);
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(
-                    `获取模型列表失败: ${response.status} - ${errorText}`,
-                );
-            }
-
-            const data = await response.json();
-            $modelSelect.empty();
-            let models = data.data || data; // Supports OpenAI and Ooba/LMStudio formats
-            if (Array.isArray(models) && models.length > 0) {
-                models.forEach((model) => {
-                    const modelId = model.id || model;
-                    $modelSelect.append(
-                        jQuery_API_ACU('<option>', {
-                            value: modelId,
-                            text: modelId,
-                        }),
-                    );
-                });
-                showToastr_ACU('success', '模型列表加载成功！');
+            if (filteredModels.length > 0) {
+                $status.html(`<i class="fas fa-check-circle" style="color: #4CAF50;"></i> 成功获取 ${filteredModels.length} 个模型`);
+                showToastr_ACU('success', `成功获取 ${filteredModels.length} 个模型`);
             } else {
-                showToastr_ACU('warning', '未能解析模型数据或列表为空。');
+                $status.html('<i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i> 未找到可用的聊天模型');
+                showToastr_ACU('warning', '未找到可用的聊天模型');
             }
-        } catch (error) {
-            logError_ACU('加载模型列表时出错:', error);
-            showToastr_ACU('error', `加载模型列表失败: ${error.message}`);
-        }
-        updateApiStatusDisplay_ACU();
+        })
+        .catch(error => {
+            logError_ACU('获取模型列表失败:', error);
+            $status.html('<i class="fas fa-times-circle" style="color: #f44336;"></i> 获取模型列表失败');
+            showToastr_ACU('error', `获取模型列表失败: ${error.message}`);
+            
+            // 如果获取失败，添加一些常见的模型作为备选
+            $modelSelect.empty().append('<option value="">请选择模型</option>');
+            const commonModels = [
+                'gpt-4',
+                'gpt-4-turbo',
+                'gpt-3.5-turbo',
+                'claude-3-opus-20240229',
+                'claude-3-sonnet-20240229',
+                'claude-3-haiku-20240307',
+                'gemini-pro',
+                'qwen-turbo',
+                'qwen-plus',
+                'qwen-max'
+            ];
+            
+            commonModels.forEach(model => {
+                $modelSelect.append(`<option value="${model}">${model}</option>`);
+            });
+            
+            showToastr_ACU('info', '已加载常见模型列表，请手动选择或输入模型名称');
+        })
+        .finally(() => {
+            $modelSelect.prop('disabled', false);
+        });
     }
 
     function updateApiStatusDisplay_ACU() {
-        if (!$extensionSettingsPanel) return;
-        const $apiStatus = $extensionSettingsPanel.find(
-            '#autoCardUpdater-api-status',
-        );
-        if (customApiConfig_ACU.url && customApiConfig_ACU.model) {
-            $apiStatus.html(
-                `当前URL: <span style="color:lightgreen;word-break:break-all;">${escapeHtml_ACU(
-                    customApiConfig_ACU.url,
-                )}</span><br>已选模型: <span style="color:lightgreen;">${escapeHtml_ACU(customApiConfig_ACU.model)}</span>`,
-            );
-        } else if (customApiConfig_ACU.url) {
-            $apiStatus.html(
-                `当前URL: ${escapeHtml_ACU(customApiConfig_ACU.url)} - <span style="color:orange;">请加载并选择模型</span>`,
-            );
-        } else {
-            $apiStatus.html(
-                `<span style="color:#ffcc80;">未配置自定义API。</span>`,
-            );
+        const $status = jQuery_API_ACU('#autoCardUpdater-api-status');
+        
+        if (!customApiConfig_ACU.url) {
+            $status.html('<i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i> 未配置API');
+            return;
         }
+        
+        if (!customApiConfig_ACU.model) {
+            $status.html('<i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i> 未选择模型');
+            return;
+        }
+        
+        const configName = currentConfigId_ACU && customApiConfigs_ACU[currentConfigId_ACU] 
+            ? customApiConfigs_ACU[currentConfigId_ACU].name 
+            : '未命名配置';
+        
+        $status.html(`<i class="fas fa-check-circle" style="color: #4CAF50;"></i> 当前配置: ${configName}`);
     }
 
     // --- 核心逻辑 ---
@@ -1901,6 +2302,13 @@ console.log(
         $extensionSettingsPanel.find('#autoCardUpdater-default-select-all-characters').on('change', function() {
             localStorage.setItem('autoCardUpdater-default-select-all-characters', this.checked);
         });
+
+        // 多配置管理事件
+        jQuery_API_ACU('#autoCardUpdater-config-selector').on('change', onConfigSelectorChange_ACU);
+        jQuery_API_ACU('#autoCardUpdater-add-config').on('click', addNewConfig_ACU);
+        jQuery_API_ACU('#autoCardUpdater-delete-config').on('click', deleteApiConfig_ACU);
+        jQuery_API_ACU('#autoCardUpdater-save-config').on('click', saveApiConfig_ACU);
+        jQuery_API_ACU('#autoCardUpdater-test-config').on('click', testApiConfig_ACU);
     }
 
     async function initializeExtension() {
@@ -1949,6 +2357,13 @@ console.log(
 
         logDebug_ACU('扩展初始化成功!');
         toastr_API_ACU.success('角色卡自动更新扩展已加载！');
+
+        // 加载多配置
+        loadApiConfigsFromStorage_ACU();
+
+        // 初始化UI
+        updateConfigSelector_ACU();
+        updateConfigList_ACU();
     }
 
     async function loadAllChatMessages_ACU() {
